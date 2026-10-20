@@ -1,0 +1,7 @@
+{
+  "entity.samuraiboss.samurai_shogun": "Corrupted Shogun",
+  "item.samuraiboss.samurai_blade": "Blade of the Corrupted Shogun",
+  "item.samuraiboss.samurai_blade.ability_title": "Ability: Shadow Dash",
+  "item.samuraiboss.samurai_blade.ability_desc": "Shift + Right Click: dash 10 blocks, damaging foes in your path, then gain Regeneration II for 30s",
+  "item.samuraiboss.samurai_shogun_spawn_egg": "Corrupted Shogun Spawn Egg"
+}

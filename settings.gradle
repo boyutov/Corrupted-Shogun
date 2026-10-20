@@ -1,0 +1,17 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        maven {
+            name = 'MinecraftForge'
+            url = 'https://maven.minecraftforge.net/'
+        }
+    }
+}
+
+// Lets Gradle fetch a JDK 17 automatically if the machine doesn't have one.
+// Forge 1.20.1 requires exactly Java 17 — it will not run on 21.
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.8.0'
+}
+
+rootProject.name = 'samurai-shogun'

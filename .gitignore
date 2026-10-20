@@ -1,0 +1,10 @@
+run/
+build/
+.gradle/
+.idea/
+*.iml
+eclipse/
+.vscode/
+out/
+*.log
+.claude/
