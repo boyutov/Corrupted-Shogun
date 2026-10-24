@@ -64,5 +64,6 @@
   "spell.samuraiboss.meteor": "Meteor",
   "entity.samuraiboss.meteor": "Meteor",
   "message.samuraiboss.meteor.no_room": "No room to take off",
-  "tooltip.samuraiboss.scroll_free": "No mana: the scroll is spent instead"
+  "tooltip.samuraiboss.scroll_free": "No mana: the scroll is spent instead",
+  "message.samuraiboss.meteor.no_ground": "No ground to strike"
 }

@@ -8,6 +8,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.Container;
+import net.minecraft.world.Containers;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.damagesource.DamageSource;
@@ -18,10 +20,12 @@ import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.level.block.BaseFireBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
+import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -189,12 +193,30 @@ public final class MeteorImpact {
                     || state.getBlock().getExplosionResistance() >= RESISTANCE_LIMIT) {
                 return false;
             }
-            // onRemove runs regardless of flags and would spill chest contents; drop the
-            // block entity first so the container has nothing to spill.
             if (state.hasBlockEntity()) {
+                // Like a vanilla explosion: inventories spill, the block itself drops nothing.
+                // Spill it ourselves, then drop the block entity so onRemove (which runs
+                // regardless of flags) finds nothing left to spill a second time.
+                spillInventory(pos);
                 level.removeBlockEntity(pos);
             }
             return level.setBlock(pos, Blocks.AIR.defaultBlockState(), REMOVE_FLAGS);
+        }
+
+        private void spillInventory(BlockPos pos) {
+            BlockEntity blockEntity = level.getBlockEntity(pos);
+            if (blockEntity instanceof Container container) {
+                Containers.dropContents(level, pos, container);
+                container.clearContent();
+            } else if (blockEntity != null) {
+                // Modded inventories that only expose an item handler.
+                blockEntity.getCapability(ForgeCapabilities.ITEM_HANDLER).ifPresent(handler -> {
+                    for (int slot = 0; slot < handler.getSlots(); slot++) {
+                        Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(),
+                                handler.getStackInSlot(slot).copy());
+                    }
+                });
+            }
         }
 
         boolean isDone() {

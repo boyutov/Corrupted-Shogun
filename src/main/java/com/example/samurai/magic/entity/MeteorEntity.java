@@ -3,6 +3,7 @@ package com.example.samurai.magic.entity;
 import com.example.samurai.magic.registry.MagicEntities;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
@@ -25,7 +26,7 @@ import java.util.UUID;
 public class MeteorEntity extends Entity {
 
     public static final float SIZE = 7f;
-    private static final double SPEED = 1.5;
+    public static final double SPEED = 1.5;
     /** Safety net: discard if something keeps it from landing for this long. */
     private static final int MAX_LIFETIME = 200;
 
@@ -37,7 +38,6 @@ public class MeteorEntity extends Entity {
         super(type, level);
         noPhysics = true;
         setNoGravity(true);
-        setDeltaMovement(0, -SPEED, 0);
     }
 
     public MeteorEntity(Level level, ServerPlayer owner, int spellLevel) {
@@ -82,23 +82,37 @@ public class MeteorEntity extends Entity {
     private void spawnTrail() {
         RandomSource random = level().getRandom();
         double half = SIZE / 2;
+        // Particles drift back along the flight path.
+        Vec3 back = getDeltaMovement().normalize().scale(-0.5);
         for (int i = 0; i < 14; i++) {
             double x = getX() + (random.nextDouble() - 0.5) * SIZE;
             double y = getY() + random.nextDouble() * SIZE;
             double z = getZ() + (random.nextDouble() - 0.5) * SIZE;
+            double k = 0.8 + random.nextDouble() * 1.2;
             level().addAlwaysVisibleParticle(ParticleTypes.FLAME, true, x, y, z,
-                    (random.nextDouble() - 0.5) * 0.1, 0.4 + random.nextDouble() * 0.6, (random.nextDouble() - 0.5) * 0.1);
+                    back.x * k + (random.nextDouble() - 0.5) * 0.1, back.y * k, back.z * k + (random.nextDouble() - 0.5) * 0.1);
         }
         for (int i = 0; i < 5; i++) {
             level().addAlwaysVisibleParticle(ParticleTypes.LARGE_SMOKE, true,
-                    getX() + (random.nextDouble() - 0.5) * half, getY() + SIZE + random.nextDouble() * 2,
-                    getZ() + (random.nextDouble() - 0.5) * half, 0, 0.3 + random.nextDouble() * 0.3, 0);
+                    getX() + (random.nextDouble() - 0.5) * half + back.x * SIZE, getY() + half + back.y * SIZE,
+                    getZ() + (random.nextDouble() - 0.5) * half + back.z * SIZE, back.x * 0.6, back.y * 0.6, back.z * 0.6);
         }
         if (random.nextInt(2) == 0) {
             level().addAlwaysVisibleParticle(ParticleTypes.LAVA, true,
                     getX() + (random.nextDouble() - 0.5) * SIZE, getY() + random.nextDouble() * SIZE,
                     getZ() + (random.nextDouble() - 0.5) * SIZE, 0, 0, 0);
         }
+    }
+
+    /** Vanilla's spawn packet carries the velocity but recreateFromPacket ignores it; the client needs it to fly the same path. */
+    @Override
+    public void recreateFromPacket(ClientboundAddEntityPacket packet) {
+        super.recreateFromPacket(packet);
+        setDeltaMovement(packet.getXa(), packet.getYa(), packet.getZa());
+    }
+
+    public void launchTowards(Vec3 target, double speed) {
+        setDeltaMovement(target.subtract(position()).normalize().scale(speed));
     }
 
     @Override

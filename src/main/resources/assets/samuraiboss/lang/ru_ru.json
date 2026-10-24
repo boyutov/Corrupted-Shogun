@@ -64,5 +64,6 @@
   "spell.samuraiboss.meteor": "Метеор",
   "entity.samuraiboss.meteor": "Метеор",
   "message.samuraiboss.meteor.no_room": "Нет места для взлёта",
-  "tooltip.samuraiboss.scroll_free": "Без маны: расходуется свиток"
+  "tooltip.samuraiboss.scroll_free": "Без маны: расходуется свиток",
+  "message.samuraiboss.meteor.no_ground": "Нет земли для удара"
 }
