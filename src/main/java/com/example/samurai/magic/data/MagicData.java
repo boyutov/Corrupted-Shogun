@@ -38,6 +38,8 @@ public class MagicData implements INBTSerializable<CompoundTag> {
     public static final float BASE_REGEN_FRACTION_PER_SECOND = 0.01f;
     /** Minimum ticks between two regen-driven mana packets. Cast and cooldown changes go out at once. */
     private static final int MANA_SYNC_INTERVAL = 5;
+    /** Vanilla players take no fall damage from this height or less. */
+    public static final float SAFE_FALL_DISTANCE = 3f;
     /** Ticks after granting during which standing on the ground does not end fall immunity (takeoff). */
     private static final int FALL_IMMUNITY_GRACE = 10;
 
@@ -210,7 +212,15 @@ public class MagicData implements INBTSerializable<CompoundTag> {
         fallImmune = false;
     }
 
+    /**
+     * Fall ended some way that fires no fall event. A dangerous fallDistance means the
+     * fall event for this landing is still to come (player tick and movement packet
+     * order is not fixed), so leave the immunity for that event to use.
+     */
     private boolean isSafelyLanded() {
+        if (player.fallDistance > SAFE_FALL_DISTANCE) {
+            return false;
+        }
         return player.onGround() || player.isInWater() || player.isInLava() || player.onClimbable()
                 || player.isPassenger() || player.isFallFlying() || player.getAbilities().flying;
     }

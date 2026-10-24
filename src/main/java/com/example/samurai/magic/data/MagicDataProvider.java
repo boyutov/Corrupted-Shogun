@@ -33,8 +33,4 @@ public class MagicDataProvider implements ICapabilitySerializable<CompoundTag> {
     public void deserializeNBT(CompoundTag tag) {
         data.deserializeNBT(tag);
     }
-
-    public void invalidate() {
-        optional.invalidate();
-    }
 }

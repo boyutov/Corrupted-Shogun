@@ -2,11 +2,13 @@ package com.example.samurai.magic.entity;
 
 import com.example.samurai.SamuraiMod;
 import com.example.samurai.magic.MagicConfig;
+import com.example.samurai.magic.data.MagicData;
 import com.example.samurai.magic.spell.MeteorSpell;
 import com.mojang.logging.LogUtils;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.Container;
 import net.minecraft.world.Containers;
@@ -31,6 +33,9 @@ import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.slf4j.Logger;
+
+import java.lang.management.GarbageCollectorMXBean;
+import java.lang.management.ManagementFactory;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -72,8 +77,27 @@ public final class MeteorImpact {
 
         if (MagicConfig.METEOR_DESTROYS_TERRAIN.get()) {
             int radius = MeteorSpell.craterRadius(meteor.getSpellLevel());
-            JOBS.add(new CraterJob(level, hit.getBlockPos(), radius));
+            ServerPlayer caster = meteor.getOwnerId() == null ? null
+                    : (ServerPlayer) level.getPlayerByUUID(meteor.getOwnerId());
+            if (caster != null && horizontalDistance(caster.position(), center) <= radius + 1) {
+                // The caster usually lands at the impact point just before the strike; the
+                // crater then opens under them. That drop must be as harmless as the first.
+                MagicData.get(caster).ifPresent(MagicData::grantFallImmunity);
+            }
+            scheduleCrater(level, hit.getBlockPos(), radius, caster == null ? null : caster.position());
         }
+    }
+
+    private static double horizontalDistance(Vec3 a, Vec3 b) {
+        return Math.sqrt((a.x - b.x) * (a.x - b.x) + (a.z - b.z) * (a.z - b.z));
+    }
+
+    /**
+     * Queues a crater; it is carved from the next server tick on, within the per-tick budget.
+     * @param keepClear no fire is lit within 2 blocks of this point (the caster), may be null
+     */
+    public static void scheduleCrater(ServerLevel level, BlockPos center, int radius, @Nullable Vec3 keepClear) {
+        JOBS.add(new CraterJob(level, center, radius, keepClear));
     }
 
     /** Linear falloff from 40 at the centre to 10 at 12 blocks. Spares the caster and everything they own. */
@@ -139,15 +163,19 @@ public final class MeteorImpact {
         private final int depth;
         private final int up;
         private final List<BlockPos> positions = new ArrayList<>();
+        @Nullable
+        private final Vec3 keepClear;
         private int next;
 
         private int removed;
         private int ticks;
         private long nanos;
         private long maxTickNanos;
+        private long gcMillis;
 
-        CraterJob(ServerLevel level, BlockPos center, int radius) {
+        CraterJob(ServerLevel level, BlockPos center, int radius, @Nullable Vec3 keepClear) {
             this.level = level;
+            this.keepClear = keepClear;
             this.center = center;
             this.radius = radius;
             this.depth = Math.round(radius * 2f / 3f);
@@ -169,6 +197,7 @@ public final class MeteorImpact {
         /** Removes up to {@code budget} blocks; returns how many positions it consumed. */
         int carve(int budget) {
             long start = System.nanoTime();
+            long gcStart = gcTimeMillis();
             int used = 0;
             while (next < positions.size() && used < budget) {
                 BlockPos pos = positions.get(next++);
@@ -178,6 +207,7 @@ public final class MeteorImpact {
                 }
             }
             long spent = System.nanoTime() - start;
+            gcMillis += gcTimeMillis() - gcStart;
             nanos += spent;
             maxTickNanos = Math.max(maxTickNanos, spent);
             ticks++;
@@ -226,9 +256,9 @@ public final class MeteorImpact {
         void finish() {
             int fires = placeFires();
             LOGGER.info("Meteor crater at {}: radius {}, depth {}, {} blocks removed over {} tick(s), "
-                            + "{} ms total, {} ms worst tick, {} fires",
+                            + "{} ms total, {} ms worst tick (of which GC {} ms), {} fires",
                     center.toShortString(), radius, depth, removed, ticks,
-                    String.format("%.2f", nanos / 1e6), String.format("%.2f", maxTickNanos / 1e6), fires);
+                    String.format("%.2f", nanos / 1e6), String.format("%.2f", maxTickNanos / 1e6), gcMillis, fires);
         }
 
         /** A handful of fires on the crater floor. Capped hard: spreading fire is what eats TPS. */
@@ -239,6 +269,9 @@ public final class MeteorImpact {
                 int dx = Math.round((random.nextFloat() * 2 - 1) * radius * 0.7f);
                 int dz = Math.round((random.nextFloat() * 2 - 1) * radius * 0.7f);
                 BlockPos column = center.offset(dx, 0, dz);
+                if (keepClear != null && horizontalDistance(Vec3.atCenterOf(column), keepClear) < 2.5) {
+                    continue;
+                }
                 // From the top of the carved volume down: the first air-on-solid is the crater floor.
                 for (int dy = up; dy >= -depth - 2; dy--) {
                     BlockPos pos = column.above(dy);
@@ -254,6 +287,15 @@ public final class MeteorImpact {
             }
             return placed;
         }
+    }
+
+    /** Total GC pause time so far; lets the crater log tell a GC hiccup from carving cost. */
+    private static long gcTimeMillis() {
+        long total = 0;
+        for (GarbageCollectorMXBean gc : ManagementFactory.getGarbageCollectorMXBeans()) {
+            total += Math.max(0, gc.getCollectionTime());
+        }
+        return total;
     }
 
     private MeteorImpact() {

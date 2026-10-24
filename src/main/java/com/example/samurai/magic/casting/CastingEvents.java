@@ -33,10 +33,14 @@ public final class CastingEvents {
         });
     }
 
-    /** Spells like meteor launch the caster; the first landing afterwards is free. */
+    /**
+     * Spells like meteor launch the caster; the first real landing afterwards is free.
+     * Touchdowns from a safe height don't use the immunity up: at takeoff the caster
+     * can bob against the ground for a tick or two before the lift wins.
+     */
     @SubscribeEvent
     public static void fell(LivingFallEvent event) {
-        if (event.getEntity() instanceof ServerPlayer player) {
+        if (event.getEntity() instanceof ServerPlayer player && event.getDistance() > MagicData.SAFE_FALL_DISTANCE) {
             MagicData.get(player).ifPresent(data -> {
                 if (data.isFallImmune()) {
                     data.clearFallImmunity();

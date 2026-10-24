@@ -20,9 +20,10 @@ public final class MagicDataEvents {
     @SubscribeEvent
     public static void attach(AttachCapabilitiesEvent<Entity> event) {
         if (event.getObject() instanceof Player player) {
-            MagicDataProvider provider = new MagicDataProvider(player);
-            event.addCapability(KEY, provider);
-            event.addListener(provider::invalidate);
+            // No invalidate listener on purpose: PlayerEvent.Clone needs reviveCaps() to bring the
+            // old player's data back, and a LazyOptional invalidated by a listener stays dead.
+            // Forge already hides the capability while the provider is invalid.
+            event.addCapability(KEY, new MagicDataProvider(player));
         }
     }
 

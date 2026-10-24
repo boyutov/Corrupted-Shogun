@@ -44,6 +44,10 @@ minecraft {
         client {
             // handy: skips the login screen in dev
             property 'forge.enabledGameTestNamespaces', mod_id
+            // ./gradlew runClient -Psamuraiboss.autotest runs the magic end-to-end check (MagicAutoTest)
+            if (project.hasProperty('samuraiboss.autotest')) {
+                property 'samuraiboss.autotest', 'true'
+            }
         }
 
         server {
