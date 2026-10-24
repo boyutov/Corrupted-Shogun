@@ -168,9 +168,10 @@ public final class MagicAutoTest {
     /** Book, keys, cast types, damage threshold, persistence. Skipped with -Psamuraiboss.autotest=meteor. */
     private void frameworkSteps() {
         // 1. Mana
-        check("1 fresh player has full mana (server)", () -> serverData(d -> d.getMana() == d.getMaxMana() && d.getMaxMana() == 100f));
-        check("1 client mirror shows the same mana", () -> Math.abs(ClientMagicData.getMana() - 100f) < 0.01f
-                && ClientMagicData.getMaxMana() == 100f);
+        check("1 fresh player has full mana (server)", () -> serverData(d -> d.getMana() == d.getMaxMana()
+                && d.getMaxMana() == (float) MagicAttributes.DEFAULT_MAX_MANA));
+        check("1 client mirror shows the same mana", () -> Math.abs(ClientMagicData.getMana() - (float) MagicAttributes.DEFAULT_MAX_MANA) < 0.01f
+                && ClientMagicData.getMaxMana() == (float) MagicAttributes.DEFAULT_MAX_MANA);
         screenshot("01_hud_idle");
 
         // 2. Book menu on R, select the LONG stub by clicking its button

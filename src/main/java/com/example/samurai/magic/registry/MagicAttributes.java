@@ -12,9 +12,13 @@ public final class MagicAttributes {
     public static final DeferredRegister<Attribute> ATTRIBUTES =
             DeferredRegister.create(ForgeRegistries.ATTRIBUTES, SamuraiMod.MOD_ID);
 
+    /** Default mana pool. Players saved with the old default are moved up on login (see MagicDataEvents). */
+    public static final double DEFAULT_MAX_MANA = 300.0;
+    public static final double OLD_DEFAULT_MAX_MANA = 100.0;
+
     /** Mana pool size. Syncable so the client can draw the bar without an extra packet. */
     public static final RegistryObject<Attribute> MAX_MANA = ATTRIBUTES.register("max_mana",
-            () -> new RangedAttribute("attribute." + SamuraiMod.MOD_ID + ".max_mana", 100.0, 0.0, 1_000_000.0)
+            () -> new RangedAttribute("attribute." + SamuraiMod.MOD_ID + ".max_mana", DEFAULT_MAX_MANA, 0.0, 1_000_000.0)
                     .setSyncable(true));
 
     /** Multiplier on the base regeneration rate; 1.0 = normal, 0 = no regen. */

@@ -2,9 +2,11 @@ package com.example.samurai.magic.data;
 
 import com.example.samurai.SamuraiMod;
 import com.example.samurai.magic.casting.SpellCasting;
+import com.example.samurai.magic.registry.MagicAttributes;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.player.Player;
 import net.minecraftforge.event.AttachCapabilitiesEvent;
 import net.minecraftforge.event.TickEvent;
@@ -57,6 +59,12 @@ public final class MagicDataEvents {
 
     @SubscribeEvent
     public static void loggedIn(PlayerEvent.PlayerLoggedInEvent event) {
+        // Attribute base values are saved with the player, so a player from before the
+        // default went up still carries the old 100; move them to the new default once.
+        AttributeInstance maxMana = event.getEntity().getAttribute(MagicAttributes.MAX_MANA.get());
+        if (maxMana != null && maxMana.getBaseValue() == MagicAttributes.OLD_DEFAULT_MAX_MANA) {
+            maxMana.setBaseValue(MagicAttributes.DEFAULT_MAX_MANA);
+        }
         MagicData.get(event.getEntity()).ifPresent(MagicData::syncAll);
     }
 
