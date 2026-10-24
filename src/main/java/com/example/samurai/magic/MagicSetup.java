@@ -3,6 +3,7 @@ package com.example.samurai.magic;
 import com.example.samurai.magic.data.MagicData;
 import com.example.samurai.magic.network.MagicNetwork;
 import com.example.samurai.magic.registry.MagicAttributes;
+import com.example.samurai.magic.registry.MagicSpells;
 import net.minecraft.world.entity.EntityType;
 import net.minecraftforge.common.capabilities.RegisterCapabilitiesEvent;
 import net.minecraftforge.event.entity.EntityAttributeModificationEvent;
@@ -17,6 +18,7 @@ public final class MagicSetup {
 
     public static void init(IEventBus modBus) {
         MagicAttributes.ATTRIBUTES.register(modBus);
+        MagicSpells.SPELLS.register(modBus);
 
         modBus.addListener(MagicSetup::registerCapabilities);
         modBus.addListener(MagicSetup::addPlayerAttributes);

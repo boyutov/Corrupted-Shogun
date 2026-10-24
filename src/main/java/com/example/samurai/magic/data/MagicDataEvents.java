@@ -1,7 +1,9 @@
 package com.example.samurai.magic.data;
 
 import com.example.samurai.SamuraiMod;
+import com.example.samurai.magic.casting.SpellCasting;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraftforge.event.AttachCapabilitiesEvent;
@@ -39,8 +41,11 @@ public final class MagicDataEvents {
 
     @SubscribeEvent
     public static void playerTick(TickEvent.PlayerTickEvent event) {
-        if (event.phase == TickEvent.Phase.END && !event.player.level().isClientSide) {
-            MagicData.get(event.player).ifPresent(MagicData::tick);
+        if (event.phase == TickEvent.Phase.END && event.player instanceof ServerPlayer player) {
+            MagicData.get(player).ifPresent(data -> {
+                data.tick();
+                SpellCasting.tick(player, data);
+            });
         }
     }
 
