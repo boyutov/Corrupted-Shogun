@@ -96,9 +96,15 @@ public class SamuraiBossEntity extends Monster implements GeoEntity {
     /** Death clip is 3.2 s = 64 ticks; keep the body around until it finishes. */
     private static final int DEATH_ANIMATION_TICKS = 64;
 
-    /** Ticks of wind-up before attack_heavy actually lands (1.0 s in the clip). */
+    /**
+     * Blend GeckoLib plays before a triggered clip reaches its time 0. The attack clips start
+     * in their chamber pose and are authored against it (tools/build_boss_animations.py), so
+     * changing this shifts every visible impact away from the server hit frames below.
+     */
+    private static final int ATTACK_BLEND_TICKS = 5;
+    /** Ticks of wind-up before attack_heavy actually lands (blend + 0.75 s in the clip). */
     private static final int HEAVY_IMPACT_DELAY = 20;
-    /** Ticks of wind-up before attack_slash lands (0.38 s in the clip). */
+    /** Ticks of wind-up before attack_slash lands (blend + 0.15 s in the clip). */
     private static final int SLASH_IMPACT_DELAY = 8;
 
     private static final EntityDataAccessor<Boolean> DEFENDING =
@@ -858,7 +864,7 @@ public class SamuraiBossEntity extends Monster implements GeoEntity {
     @Override
     public void registerControllers(AnimatableManager.ControllerRegistrar controllers) {
         AnimationController<SamuraiBossEntity> main =
-                new AnimationController<>(this, MAIN_CONTROLLER, 5, this::mainPredicate)
+                new AnimationController<>(this, MAIN_CONTROLLER, ATTACK_BLEND_TICKS, this::mainPredicate)
                         .triggerableAnim("animation.samurai_shogun.attack_slash", SLASH)
                         .triggerableAnim("animation.samurai_shogun.attack_heavy", HEAVY)
                         .triggerableAnim("animation.samurai_shogun.defend_stance", DEFEND);
@@ -894,7 +900,7 @@ public class SamuraiBossEntity extends Monster implements GeoEntity {
     }
 
     private PlayState mainPredicate(AnimationState<SamuraiBossEntity> state) {
-        state.getController().setTransitionLength(this.isInPhase() ? 0 : 5);
+        state.getController().setTransitionLength(this.isInPhase() ? 0 : ATTACK_BLEND_TICKS);
         if (this.isDeadOrDying()) {
             return PlayState.STOP;
         }
