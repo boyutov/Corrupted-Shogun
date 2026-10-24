@@ -76,8 +76,9 @@
   "school.samuraiboss.void": "Пустота",
   "spell.samuraiboss.black_hole": "Чёрная дыра",
   "entity.samuraiboss.black_hole": "Чёрная дыра",
-  "key.samuraiboss.book_equipment": "Слот книги",
   "key.samuraiboss.cast_equipped_book": "Каст из книги (удерживать)",
   "screen.samuraiboss.equipment": "Книга заклинаний",
-  "screen.samuraiboss.equipment.hint": "Поместите книгу в слот"
+  "screen.samuraiboss.equipment.hint": "Поместите книгу в слот",
+  "screen.samuraiboss.equipment.tab": "Книга",
+  "screen.samuraiboss.equipment.tab_hint": "Слот книги заклинаний"
 }

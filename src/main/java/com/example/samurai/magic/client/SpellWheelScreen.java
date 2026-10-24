@@ -156,7 +156,7 @@ public class SpellWheelScreen extends Screen {
     }
 
     /** Filled annulus sector between two angles (radians, 0 = +x, clockwise on screen). */
-    private static void ring(Matrix4f pose, int cx, int cy, float inner, float outer, double from, double to,
+    static void ring(Matrix4f pose, int cx, int cy, float inner, float outer, double from, double to,
                              int rgb, int alpha) {
         int r = rgb >> 16 & 0xFF;
         int g = rgb >> 8 & 0xFF;

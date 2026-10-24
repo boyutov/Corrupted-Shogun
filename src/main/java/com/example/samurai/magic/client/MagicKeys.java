@@ -28,7 +28,6 @@ public final class MagicKeys {
     public static final KeyMapping PREVIOUS_SPELL = key("previous_spell", GLFW.GLFW_KEY_Z);
     public static final KeyMapping NEXT_SPELL = key("next_spell", GLFW.GLFW_KEY_X);
 
-    public static final KeyMapping OPEN_BOOK_EQUIPMENT = key("book_equipment", GLFW.GLFW_KEY_B);
     public static final KeyMapping CAST_EQUIPPED_BOOK = key("cast_equipped_book", GLFW.GLFW_KEY_V);
     private static boolean bookHeld;
     private static int heartbeat;
@@ -58,9 +57,6 @@ public final class MagicKeys {
             heartbeat = 0;
         }
         if (bookHeld && ++heartbeat >= 10) { send(BookActionPacket.Action.HEARTBEAT); heartbeat = 0; }
-        while (OPEN_BOOK_EQUIPMENT.consumeClick()) {
-            if (canCast) send(BookActionPacket.Action.OPEN);
-        }
         while (OPEN_SPELL_MENU.consumeClick()) {
             if (player == null || mc.screen != null) {
                 continue;

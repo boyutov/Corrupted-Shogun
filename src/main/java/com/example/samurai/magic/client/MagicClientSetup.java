@@ -32,6 +32,7 @@ public final class MagicClientSetup {
         @SubscribeEvent
         public static void registerOverlays(RegisterGuiOverlaysEvent event) {
             event.registerAbove(VanillaGuiOverlay.HOTBAR.id(), "mana_bar", ManaHudOverlay.INSTANCE);
+            event.registerAbove(VanillaGuiOverlay.HOTBAR.id(), "spell_ring", SpellRingOverlay.INSTANCE);
             // After the item name so leftHeight/rightHeight are final and the bar can sit above it.
             event.registerAbove(VanillaGuiOverlay.ITEM_NAME.id(), "cast_bar", CastBarOverlay.INSTANCE);
         }
@@ -61,7 +62,6 @@ public final class MagicClientSetup {
             event.register(MagicKeys.OPEN_SPELL_MENU);
             event.register(MagicKeys.PREVIOUS_SPELL);
             event.register(MagicKeys.NEXT_SPELL);
-            event.register(MagicKeys.OPEN_BOOK_EQUIPMENT);
             event.register(MagicKeys.CAST_EQUIPPED_BOOK);
         }
 
