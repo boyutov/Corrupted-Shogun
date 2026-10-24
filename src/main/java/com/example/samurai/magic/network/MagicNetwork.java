@@ -10,7 +10,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 
 public final class MagicNetwork {
 
-    private static final String PROTOCOL = "2";
+    private static final String PROTOCOL = "3";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(SamuraiMod.MOD_ID, "magic"),
@@ -33,6 +33,11 @@ public final class MagicNetwork {
                 .encoder(SyncCooldownsPacket::encode)
                 .decoder(SyncCooldownsPacket::decode)
                 .consumerMainThread(SyncCooldownsPacket::handle)
+                .add();
+        CHANNEL.messageBuilder(LaunchPacket.class, nextId++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(LaunchPacket::encode)
+                .decoder(LaunchPacket::decode)
+                .consumerMainThread(LaunchPacket::handle)
                 .add();
         CHANNEL.messageBuilder(SelectSpellPacket.class, nextId++, NetworkDirection.PLAY_TO_SERVER)
                 .encoder(SelectSpellPacket::encode)

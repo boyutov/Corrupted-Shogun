@@ -54,11 +54,15 @@ public final class MagicClientSetup {
         @SubscribeEvent
         public static void loggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
             ClientMagicData.reset();
+            ClientLaunch.stop();
         }
 
         @SubscribeEvent
         public static void clientTick(TickEvent.ClientTickEvent event) {
-            if (event.phase == TickEvent.Phase.END) {
+            if (event.phase == TickEvent.Phase.START) {
+                // Before the player moves this tick.
+                ClientLaunch.tick(Minecraft.getInstance());
+            } else {
                 Minecraft mc = Minecraft.getInstance();
                 if (mc.player != null && !mc.isPaused()) {
                     ClientMagicData.tick();

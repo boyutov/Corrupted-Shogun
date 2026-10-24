@@ -76,7 +76,10 @@ import java.util.function.Supplier;
 public final class MagicAutoTest {
 
     private static final Logger LOGGER = LogUtils.getLogger();
-    private static final boolean ENABLED = Boolean.getBoolean("samuraiboss.autotest");
+    /** "all" (default) or "meteor" for the meteor part only, which skips most of the run time. */
+    private static final String MODE = System.getProperty("samuraiboss.autotest", "");
+    private static final boolean ENABLED = !MODE.isEmpty() && !MODE.equals("false");
+    private static final boolean FULL = !MODE.equals("meteor");
     private static final String WORLD = "samuraiboss-autotest-" + System.currentTimeMillis();
 
     private final Minecraft mc = Minecraft.getInstance();
@@ -90,6 +93,9 @@ public final class MagicAutoTest {
     private float manaBefore;
     private double riseStartY;
     private double riseMaxY;
+    private double riseStartX;
+    private double riseStartZ;
+    private double apexDrift;
     private int expectedIndex;
     private boolean cloneResult;
     private final List<String> casterDamage = new ArrayList<>();
@@ -135,6 +141,144 @@ public final class MagicAutoTest {
         });
         waitTicks(40);
 
+        if (FULL) {
+            frameworkSteps();
+        }
+
+        // Meteor
+        act("meteor setup: survival, scroll lvl 4, chest, golem, tamed wolf", this::setupMeteor);
+        waitTicks(10);
+        act("hold RMB with meteor scroll", () -> {
+            watchCasterDamage = true;
+            riseStartY = serverPlayer().getY();
+            riseStartX = serverPlayer().getX();
+            riseStartZ = serverPlayer().getZ();
+            riseMaxY = riseStartY;
+            holdUse(true);
+        });
+        untilTracking("M meteor cast completes", () -> !serverData(MagicData::isCasting), 80);
+        screenshot("06_meteor_top");
+        act("release RMB", () -> holdUse(false));
+        check("M arc: ≈32 up and ≈18 away from the impact", () -> {
+            apexDrift = onServer(() -> Math.hypot(serverPlayer().getX() - riseStartX, serverPlayer().getZ() - riseStartZ));
+            record("   rose " + String.format("%.2f", riseMaxY - riseStartY) + ", drifted " + String.format("%.2f", apexDrift));
+            return riseMaxY - riseStartY > 29 && riseMaxY - riseStartY < 34 && apexDrift > 15 && apexDrift < 20;
+        });
+        check("M scroll consumed", () -> onServer(() -> SpellScrollItem.getSpell(serverPlayer().getMainHandItem()) == null));
+        check("M meteor in flight, not straight down", () -> onServer(() -> {
+            List<MeteorEntity> meteors = serverPlayer().serverLevel().getEntitiesOfClass(MeteorEntity.class,
+                    new AABB(serverPlayer().blockPosition()).inflate(80));
+            meteors.forEach(m -> record("   meteor at " + m.position() + " v " + m.getDeltaMovement()));
+            return !meteors.isEmpty() && Math.abs(meteors.get(0).getDeltaMovement().horizontalDistance()) > 0.3;
+        }));
+        waitTicks(15);
+        screenshot("07_meteor_flight");
+        untilTracking("M caster landed", () -> serverPlayerBool(p -> p.onGround() && p.getY() < riseStartY + 2), 200);
+        check("M fall immunity used up by that landing", () -> !serverData(MagicData::isFallImmune));
+        check("M landed beyond the crater edge (radius 9)", () -> {
+            double d = onServer(() -> Math.hypot(serverPlayer().getX() - 0.5, serverPlayer().getZ() - 0.5));
+            record("   landed " + String.format("%.2f", d) + " blocks from the impact");
+            return d > 10;
+        });
+        waitTicks(20);
+        screenshot("08_crater");
+        check("M caster took no damage of any kind", () -> {
+            record("   caster damage events: " + casterDamage);
+            return casterDamage.isEmpty();
+        });
+        check("M golem (≈10.5 blocks) damaged ~14", () -> onServer(() -> {
+            List<IronGolem> golems = serverPlayer().serverLevel().getEntitiesOfClass(IronGolem.class,
+                    new AABB(BlockPos.ZERO.above(ARENA_TOP)).inflate(30));
+            golems.forEach(g -> record("   golem health " + g.getHealth()));
+            return !golems.isEmpty() && golems.get(0).getHealth() < 90 && golems.get(0).getHealth() > 80;
+        }));
+        check("M tamed wolf untouched", () -> onServer(() -> {
+            List<Wolf> wolves = serverPlayer().serverLevel().getEntitiesOfClass(Wolf.class,
+                    new AABB(BlockPos.ZERO.above(ARENA_TOP)).inflate(30));
+            wolves.forEach(w -> record("   wolf health " + w.getHealth() + "/" + w.getMaxHealth()));
+            return !wolves.isEmpty() && wolves.get(0).getHealth() == wolves.get(0).getMaxHealth();
+        }));
+        check("M chest contents spilled (5 netherite ingots on the ground)", () -> onServer(() -> {
+            int count = serverPlayer().serverLevel().getEntitiesOfClass(ItemEntity.class,
+                            new AABB(BlockPos.ZERO.above(ARENA_TOP)).inflate(30)).stream()
+                    .filter(e -> e.getItem().is(Items.NETHERITE_INGOT)).mapToInt(e -> e.getItem().getCount()).sum();
+            record("   netherite on ground " + count);
+            return count == 5;
+        }));
+        check("M crater dug", () -> onServer(() -> serverPlayer().serverLevel()
+                .getBlockState(new BlockPos(3, ARENA_TOP - 3, 3)).isAir()));
+        act("stop watching damage", () -> watchCasterDamage = false);
+
+        // Meteor refusals
+        act("ceiling over caster", () -> onServer(() -> {
+            ServerLevel level = serverPlayer().serverLevel();
+            serverData(d -> {
+                d.getCooldowns().clear();
+                return null;
+            });
+            serverPlayer().setHealth(20);
+            serverPlayer().teleportTo(60.5, ARENA_TOP + 1, 0.5);
+            level.setBlock(new BlockPos(60, ARENA_TOP + 12, 0), Blocks.STONE.defaultBlockState(), Block.UPDATE_ALL);
+            serverPlayer().getInventory().setItem(serverPlayer().getInventory().selected,
+                    SpellScrollItem.create(MagicSpells.METEOR.get(), 1));
+            return null;
+        }));
+        waitTicks(10);
+        check("M ceiling 11 blocks up: refused (no_room)", () -> onServer(() -> {
+            String msg = tryCastFromScroll().getMessage().getString();
+            record("   message: " + msg);
+            return msg.contains("взлёта") || msg.toLowerCase().contains("take off");
+        }));
+        act("one-block platform high in the air", () -> onServer(() -> {
+            ServerLevel level = serverPlayer().serverLevel();
+            level.setBlock(new BlockPos(120, 250, 0), Blocks.STONE.defaultBlockState(), Block.UPDATE_ALL);
+            serverPlayer().teleportTo(120.5, 251, 0.5);
+            return null;
+        }));
+        waitTicks(10);
+        check("M one-block platform: refused (no_ground)", () -> onServer(() -> {
+            String msg = tryCastFromScroll().getMessage().getString();
+            record("   message: " + msg);
+            return msg.contains("земли") || msg.toLowerCase().contains("ground");
+        }));
+
+        // Worst case crater timing: radius 10 entirely inside stone
+        act("worst case: radius-10 crater inside solid stone", () -> onServer(() -> {
+            ServerPlayer p = serverPlayer();
+            ServerLevel level = p.serverLevel();
+            p.setGameMode(GameType.CREATIVE);
+            p.getAbilities().flying = true;
+            p.onUpdateAbilities();
+            p.teleportTo(-15.5, ARENA_TOP + 10, 100.5);
+            BlockPos c = new BlockPos(0, ARENA_TOP - 8, 60);
+            fill(level, c.offset(-11, -8, -11), c.offset(11, 5, 11), Blocks.STONE);
+            MeteorImpact.scheduleCrater(level, c, 10, null);
+            return null;
+        }));
+        waitTicks(10);
+        // Timing series: eight level-4 craters, each fully inside fresh stone, 2 s apart.
+        for (int i = 0; FULL && i < 8; i++) {
+            int n = i;
+            act("bench crater " + n, () -> onServer(() -> {
+                ServerLevel level = serverPlayer().serverLevel();
+                BlockPos c = new BlockPos(-60 + (n % 4) * 30, ARENA_TOP - 8, 100 + (n / 4) * 30);
+                fill(level, c.offset(-10, -7, -10), c.offset(10, 4, 10), Blocks.STONE);
+                return null;
+            }));
+            waitTicks(20);
+            act("bench carve " + n, () -> onServer(() -> {
+                MeteorImpact.scheduleCrater(serverPlayer().serverLevel(),
+                        new BlockPos(-60 + (n % 4) * 30, ARENA_TOP - 8, 100 + (n / 4) * 30), 9, null);
+                return null;
+            }));
+            waitTicks(20);
+        }
+
+        act("finish", this::finish);
+    }
+
+    /** Book, keys, cast types, damage threshold, persistence. Skipped with -Psamuraiboss.autotest=meteor. */
+    private void frameworkSteps() {
         // 1. Mana
         check("1 fresh player has full mana (server)", () -> serverData(d -> d.getMana() == d.getMaxMana() && d.getMaxMana() == 100f));
         check("1 client mirror shows the same mana", () -> Math.abs(ClientMagicData.getMana() - 100f) < 0.01f
@@ -383,129 +527,6 @@ public final class MagicAutoTest {
             return m >= 17f && m < 19f;
         });
         check("10 death: cooldown kept", () -> serverCooldown(MagicSpells.TEST_STUB_LONG.get()) > 2000);
-
-        // Meteor
-        act("meteor setup: survival, scroll lvl 4, chest, golem, tamed wolf", this::setupMeteor);
-        waitTicks(10);
-        act("hold RMB with meteor scroll", () -> {
-            watchCasterDamage = true;
-            riseStartY = serverPlayer().getY();
-            riseMaxY = riseStartY;
-            holdUse(true);
-        });
-        untilTracking("M meteor cast completes", () -> !serverData(MagicData::isCasting), 80);
-        screenshot("06_meteor_top");
-        act("release RMB", () -> holdUse(false));
-        check("M rise ≈24 blocks", () -> {
-            record("   rose " + String.format("%.2f", riseMaxY - riseStartY));
-            return riseMaxY - riseStartY > 20 && riseMaxY - riseStartY < 27;
-        });
-        check("M scroll consumed", () -> onServer(() -> SpellScrollItem.getSpell(serverPlayer().getMainHandItem()) == null));
-        check("M meteor in flight, not straight down", () -> onServer(() -> {
-            List<MeteorEntity> meteors = serverPlayer().serverLevel().getEntitiesOfClass(MeteorEntity.class,
-                    new AABB(serverPlayer().blockPosition()).inflate(80));
-            meteors.forEach(m -> record("   meteor at " + m.position() + " v " + m.getDeltaMovement()));
-            return !meteors.isEmpty() && Math.abs(meteors.get(0).getDeltaMovement().horizontalDistance()) > 0.3;
-        }));
-        waitTicks(15);
-        screenshot("07_meteor_flight");
-        untilTracking("M caster landed", () -> serverPlayerBool(p -> p.onGround() && p.getY() < riseStartY + 2), 200);
-        check("M fall immunity used up by that landing", () -> !serverData(MagicData::isFallImmune));
-        waitTicks(20);
-        screenshot("08_crater");
-        check("M caster took no fall damage", () -> {
-            record("   caster damage events: " + casterDamage);
-            return casterDamage.stream().noneMatch(s -> s.startsWith("fall"));
-        });
-        check("M golem (≈10.5 blocks) damaged ~14", () -> onServer(() -> {
-            List<IronGolem> golems = serverPlayer().serverLevel().getEntitiesOfClass(IronGolem.class,
-                    new AABB(BlockPos.ZERO.above(ARENA_TOP)).inflate(30));
-            golems.forEach(g -> record("   golem health " + g.getHealth()));
-            return !golems.isEmpty() && golems.get(0).getHealth() < 90 && golems.get(0).getHealth() > 80;
-        }));
-        check("M tamed wolf untouched", () -> onServer(() -> {
-            List<Wolf> wolves = serverPlayer().serverLevel().getEntitiesOfClass(Wolf.class,
-                    new AABB(BlockPos.ZERO.above(ARENA_TOP)).inflate(30));
-            wolves.forEach(w -> record("   wolf health " + w.getHealth() + "/" + w.getMaxHealth()));
-            return !wolves.isEmpty() && wolves.get(0).getHealth() == wolves.get(0).getMaxHealth();
-        }));
-        check("M chest contents spilled (5 netherite ingots on the ground)", () -> onServer(() -> {
-            int count = serverPlayer().serverLevel().getEntitiesOfClass(ItemEntity.class,
-                            new AABB(BlockPos.ZERO.above(ARENA_TOP)).inflate(30)).stream()
-                    .filter(e -> e.getItem().is(Items.NETHERITE_INGOT)).mapToInt(e -> e.getItem().getCount()).sum();
-            record("   netherite on ground " + count);
-            return count == 5;
-        }));
-        check("M crater dug", () -> onServer(() -> serverPlayer().serverLevel()
-                .getBlockState(new BlockPos(3, ARENA_TOP - 3, 3)).isAir()));
-        act("stop watching damage", () -> watchCasterDamage = false);
-
-        // Meteor refusals
-        act("ceiling over caster", () -> onServer(() -> {
-            ServerLevel level = serverPlayer().serverLevel();
-            serverData(d -> {
-                d.getCooldowns().clear();
-                return null;
-            });
-            serverPlayer().setHealth(20);
-            serverPlayer().teleportTo(60.5, ARENA_TOP + 1, 0.5);
-            level.setBlock(new BlockPos(60, ARENA_TOP + 12, 0), Blocks.STONE.defaultBlockState(), Block.UPDATE_ALL);
-            serverPlayer().getInventory().setItem(serverPlayer().getInventory().selected,
-                    SpellScrollItem.create(MagicSpells.METEOR.get(), 1));
-            return null;
-        }));
-        waitTicks(10);
-        check("M ceiling 11 blocks up: refused (no_room)", () -> onServer(() -> {
-            String msg = tryCastFromScroll().getMessage().getString();
-            record("   message: " + msg);
-            return msg.contains("взлёта") || msg.toLowerCase().contains("take off");
-        }));
-        act("one-block platform high in the air", () -> onServer(() -> {
-            ServerLevel level = serverPlayer().serverLevel();
-            level.setBlock(new BlockPos(120, 250, 0), Blocks.STONE.defaultBlockState(), Block.UPDATE_ALL);
-            serverPlayer().teleportTo(120.5, 251, 0.5);
-            return null;
-        }));
-        waitTicks(10);
-        check("M one-block platform: refused (no_ground)", () -> onServer(() -> {
-            String msg = tryCastFromScroll().getMessage().getString();
-            record("   message: " + msg);
-            return msg.contains("земли") || msg.toLowerCase().contains("ground");
-        }));
-
-        // Worst case crater timing: radius 10 entirely inside stone
-        act("worst case: radius-10 crater inside solid stone", () -> onServer(() -> {
-            ServerPlayer p = serverPlayer();
-            ServerLevel level = p.serverLevel();
-            p.setGameMode(GameType.CREATIVE);
-            p.getAbilities().flying = true;
-            p.onUpdateAbilities();
-            p.teleportTo(-15.5, ARENA_TOP + 10, 100.5);
-            BlockPos c = new BlockPos(0, ARENA_TOP - 8, 60);
-            fill(level, c.offset(-11, -8, -11), c.offset(11, 5, 11), Blocks.STONE);
-            MeteorImpact.scheduleCrater(level, c, 10, null);
-            return null;
-        }));
-        waitTicks(10);
-        // Timing series: eight level-4 craters, each fully inside fresh stone, 2 s apart.
-        for (int i = 0; i < 8; i++) {
-            int n = i;
-            act("bench crater " + n, () -> onServer(() -> {
-                ServerLevel level = serverPlayer().serverLevel();
-                BlockPos c = new BlockPos(-60 + (n % 4) * 30, ARENA_TOP - 8, 100 + (n / 4) * 30);
-                fill(level, c.offset(-10, -7, -10), c.offset(10, 4, 10), Blocks.STONE);
-                return null;
-            }));
-            waitTicks(20);
-            act("bench carve " + n, () -> onServer(() -> {
-                MeteorImpact.scheduleCrater(serverPlayer().serverLevel(),
-                        new BlockPos(-60 + (n % 4) * 30, ARENA_TOP - 8, 100 + (n / 4) * 30), 9, null);
-                return null;
-            }));
-            waitTicks(20);
-        }
-
-        act("finish", this::finish);
     }
 
     // ------------------------------------------------------------------ helpers
@@ -749,8 +770,9 @@ public final class MagicAutoTest {
                 onServer(() -> {
                     ServerPlayer p = serverPlayer();
                     MagicData d = MagicData.get(p).orElseThrow(IllegalStateException::new);
-                    LOGGER.info("[AUTOTEST]    trace {} t{} y={} ground={} immune={} fall={} casting={} hp={}",
-                            name, ticks, String.format("%.2f", p.getY() - riseStartY), p.onGround(),
+                    LOGGER.info("[AUTOTEST]    trace {} t{} y={} side={} ground={} immune={} fall={} casting={} hp={}",
+                            name, ticks, String.format("%.2f", p.getY() - riseStartY),
+                            String.format("%.2f", Math.hypot(p.getX() - riseStartX, p.getZ() - riseStartZ)), p.onGround(),
                             d.isFallImmune(), String.format("%.2f", p.fallDistance), d.isCasting(), p.getHealth());
                     return null;
                 });
