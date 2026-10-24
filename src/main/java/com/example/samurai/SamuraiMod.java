@@ -2,6 +2,7 @@ package com.example.samurai;
 
 import com.example.samurai.entity.SamuraiBossEntity;
 import com.example.samurai.item.SamuraiBladeItem;
+import com.example.samurai.magic.MagicSetup;
 import com.example.samurai.registry.ModEntities;
 import com.example.samurai.registry.ModItems;
 import net.minecraft.world.item.CreativeModeTabs;
@@ -23,6 +24,7 @@ public class SamuraiMod {
 
         ModEntities.ENTITIES.register(modBus);
         ModItems.ITEMS.register(modBus);
+        MagicSetup.init(modBus);
         modBus.addListener(this::registerAttributes);
         modBus.addListener(this::buildCreativeModeTab);
 

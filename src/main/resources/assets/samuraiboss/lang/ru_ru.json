@@ -3,5 +3,8 @@
   "item.samuraiboss.samurai_blade": "Клинок Падшего Сёгуна",
   "item.samuraiboss.samurai_blade.ability_title": "Способность: Теневой рывок",
   "item.samuraiboss.samurai_blade.ability_desc": "Shift + ПКМ: рывок на 10 блоков с уроном по пути, затем Регенерация II на 30 сек",
-  "item.samuraiboss.samurai_shogun_spawn_egg": "Яйцо призыва: Падший Сёгун"
+  "item.samuraiboss.samurai_shogun_spawn_egg": "Яйцо призыва: Падший Сёгун",
+  "attribute.samuraiboss.max_mana": "Макс. мана",
+  "attribute.samuraiboss.mana_regen": "Регенерация маны",
+  "commands.samuraiboss.mana.info": "%s: %s / %s маны"
 }
