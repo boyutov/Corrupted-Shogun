@@ -6,7 +6,6 @@ import com.example.samurai.magic.registry.MagicItems;
 import com.example.samurai.magic.spell.Spell;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.LivingEntity;
@@ -45,18 +44,6 @@ public class SpellScrollItem extends Item {
         }
         CompoundTag tag = stack.getTagElement(TAG_ROOT);
         return tag == null ? null : SpellSlot.load(tag);
-    }
-
-    /** Removes one scroll of this spell from the hands, main hand first. */
-    public static void consumeFromHands(ServerPlayer player, Spell spell) {
-        for (InteractionHand hand : InteractionHand.values()) {
-            ItemStack stack = player.getItemInHand(hand);
-            SpellSlot slot = getSpell(stack);
-            if (slot != null && slot.spell() == spell) {
-                stack.shrink(1);
-                return;
-            }
-        }
     }
 
     @Override

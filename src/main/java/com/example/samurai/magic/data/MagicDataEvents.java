@@ -51,17 +51,17 @@ public final class MagicDataEvents {
 
     @SubscribeEvent
     public static void loggedIn(PlayerEvent.PlayerLoggedInEvent event) {
-        MagicData.get(event.getEntity()).ifPresent(MagicData::sync);
+        MagicData.get(event.getEntity()).ifPresent(MagicData::syncAll);
     }
 
     @SubscribeEvent
     public static void respawn(PlayerEvent.PlayerRespawnEvent event) {
-        MagicData.get(event.getEntity()).ifPresent(MagicData::sync);
+        MagicData.get(event.getEntity()).ifPresent(MagicData::syncAll);
     }
 
     @SubscribeEvent
     public static void changedDimension(PlayerEvent.PlayerChangedDimensionEvent event) {
-        MagicData.get(event.getEntity()).ifPresent(MagicData::sync);
+        MagicData.get(event.getEntity()).ifPresent(MagicData::syncAll);
     }
 
     private MagicDataEvents() {

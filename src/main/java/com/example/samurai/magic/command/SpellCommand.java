@@ -77,7 +77,7 @@ public final class SpellCommand {
             throw UNKNOWN_SPELL.create(id);
         }
         int spellLevel = level < 0 ? spell.getMinLevel() : level;
-        CastResult result = SpellCasting.tryCast(player, spell, spellLevel, CastSource.COMMAND);
+        CastResult result = SpellCasting.tryCast(player, spell, spellLevel, CastSource.COMMAND, null);
         if (result.isSuccess()) {
             ctx.getSource().sendSuccess(() -> Component.translatable(KEY + "cast", spell.getDisplayName(), spellLevel),
                     false);

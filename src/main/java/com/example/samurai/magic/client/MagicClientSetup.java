@@ -41,7 +41,11 @@ public final class MagicClientSetup {
         @SubscribeEvent
         public static void clientTick(TickEvent.ClientTickEvent event) {
             if (event.phase == TickEvent.Phase.END) {
-                MagicKeys.handleInput(Minecraft.getInstance());
+                Minecraft mc = Minecraft.getInstance();
+                if (mc.player != null && !mc.isPaused()) {
+                    ClientMagicData.tick();
+                }
+                MagicKeys.handleInput(mc);
             }
         }
 

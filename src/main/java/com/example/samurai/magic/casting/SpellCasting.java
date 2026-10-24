@@ -1,12 +1,19 @@
 package com.example.samurai.magic.casting;
 
 import com.example.samurai.magic.data.MagicData;
+import com.example.samurai.magic.item.SpellBookItem;
+import com.example.samurai.magic.item.SpellScrollItem;
 import com.example.samurai.magic.spell.CastEndReason;
 import com.example.samurai.magic.spell.CastResult;
 import com.example.samurai.magic.spell.CastType;
 import com.example.samurai.magic.spell.Spell;
+import net.minecraft.network.protocol.game.ClientboundEntityEventPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.Item;
+
+import javax.annotation.Nullable;
 
 /**
  * Server-side cast state machine. Idle → (tryCast) → casting → (tick / endCast) → idle.
@@ -14,7 +21,12 @@ import net.minecraft.server.level.ServerPlayer;
  */
 public final class SpellCasting {
 
-    public static CastResult tryCast(ServerPlayer player, Spell spell, int spellLevel, CastSource source) {
+    /** Vanilla entity event that makes the client finish using its item (same as after eating). */
+    private static final byte ENTITY_EVENT_FINISH_USING = 9;
+
+    /** @param hand the hand holding the casting item; null for item-less sources */
+    public static CastResult tryCast(ServerPlayer player, Spell spell, int spellLevel, CastSource source,
+                                     @Nullable InteractionHand hand) {
         MagicData data = MagicData.get(player).orElse(null);
         if (data == null || spell.getCastType() == CastType.NONE) {
             return CastResult.INVALID_SPELL;
@@ -44,10 +56,10 @@ public final class SpellCasting {
             case INSTANT -> {
                 data.consumeMana(cost);
                 spell.onCastStart(level, player, spellLevel, data);
-                finishSuccessfully(level, player, spell, spellLevel, data, source);
+                finishSuccessfully(level, player, spell, spellLevel, data, source, hand);
             }
             case LONG, CONTINUOUS -> {
-                data.startCasting(spell, spellLevel, spell.getCastTime(spellLevel), source);
+                data.startCasting(spell, spellLevel, spell.getCastTime(spellLevel), source, hand);
                 spell.onCastStart(level, player, spellLevel, data);
             }
             default -> {
@@ -70,9 +82,15 @@ public final class SpellCasting {
             data.clearCasting();
             return;
         }
+        int spellLevel = data.getCastingLevel();
+        // Item gone from the hand (dropped, swapped, moved by a container)? Stop now
+        // rather than keep charging or draining mana for a cast that cannot finish.
+        if (!data.getCastSource().isStillHeld(player, data.getCastHand(), spell, spellLevel)) {
+            endCast(player, CastEndReason.CANCELLED);
+            return;
+        }
 
         ServerLevel level = player.serverLevel();
-        int spellLevel = data.getCastingLevel();
         int elapsed = data.advanceCast();
         spell.onCastTick(level, player, spellLevel, data, elapsed);
         if (!data.isCasting()) {
@@ -93,7 +111,8 @@ public final class SpellCasting {
     /**
      * Ends the current cast, if any. Whether that counts as success depends on
      * the cast type: a LONG cast succeeds only on COMPLETED; a CONTINUOUS cast
-     * succeeds unless it was interrupted by damage or cancelled.
+     * succeeds unless it was interrupted by damage or cancelled. Either way it
+     * fails if the casting item is no longer in its hand with the same spell.
      */
     public static void endCast(ServerPlayer player, CastEndReason reason) {
         MagicData data = MagicData.get(player).orElse(null);
@@ -103,38 +122,73 @@ public final class SpellCasting {
         Spell spell = data.getCastingSpell();
         int spellLevel = data.getCastingLevel();
         CastSource source = data.getCastSource();
+        InteractionHand hand = data.getCastHand();
         // Clear before hooks so a hook that starts a new cast isn't clobbered.
         data.clearCasting();
-        if (spell == null) {
-            return;
-        }
 
-        ServerLevel level = player.serverLevel();
-        boolean success = switch (spell.getCastType()) {
-            case LONG -> reason == CastEndReason.COMPLETED && data.consumeMana(spell.getManaCost(spellLevel));
-            case CONTINUOUS -> reason == CastEndReason.COMPLETED || reason == CastEndReason.RELEASED
-                    || reason == CastEndReason.OUT_OF_MANA;
-            default -> false;
-        };
-        if (success) {
-            finishSuccessfully(level, player, spell, spellLevel, data, source);
-        } else {
+        if (spell != null) {
             CastEndReason actual = reason;
-            if (reason == CastEndReason.COMPLETED) {
-                // LONG finished charging but the player can no longer pay.
+            boolean success = switch (spell.getCastType()) {
+                case LONG -> reason == CastEndReason.COMPLETED;
+                case CONTINUOUS -> reason == CastEndReason.COMPLETED || reason == CastEndReason.RELEASED
+                        || reason == CastEndReason.OUT_OF_MANA;
+                default -> false;
+            };
+            if (success && !source.isStillHeld(player, hand, spell, spellLevel)) {
+                success = false;
+                actual = CastEndReason.CANCELLED;
+            }
+            if (success && spell.getCastType() == CastType.LONG && !data.consumeMana(spell.getManaCost(spellLevel))) {
+                // Finished charging but can no longer pay.
+                success = false;
                 actual = CastEndReason.OUT_OF_MANA;
                 player.displayClientMessage(CastResult.NOT_ENOUGH_MANA.getMessage(), true);
             }
-            spell.onCastInterrupted(level, player, spellLevel, data, actual);
+
+            ServerLevel level = player.serverLevel();
+            if (success) {
+                finishSuccessfully(level, player, spell, spellLevel, data, source, hand);
+            } else {
+                spell.onCastInterrupted(level, player, spellLevel, data, actual);
+            }
+        }
+        // RELEASED comes from Item#onStopUsing, i.e. vanilla is already ending the use.
+        if (source.isItem() && reason != CastEndReason.RELEASED) {
+            releaseSpellItem(player);
         }
         data.sync();
     }
 
+    /**
+     * If the player is still holding use on a spell item, end that use on both
+     * sides. Without this a completed LONG cast leaves the player in the use pose
+     * (and its movement slowdown) until the button is released.
+     */
+    private static void releaseSpellItem(ServerPlayer player) {
+        if (player.isUsingItem() && isSpellItem(player.getUseItem().getItem())) {
+            // stopUsingItem() calls Item#onStopUsing → endCast, which is a no-op by now.
+            player.stopUsingItem();
+            stopClientUsing(player);
+        }
+    }
+
+    /**
+     * Makes the client finish its current item use. Also used when the server
+     * refuses a cast the client had optimistically started holding.
+     */
+    public static void stopClientUsing(ServerPlayer player) {
+        player.connection.send(new ClientboundEntityEventPacket(player, ENTITY_EVENT_FINISH_USING));
+    }
+
+    private static boolean isSpellItem(Item item) {
+        return item instanceof SpellBookItem || item instanceof SpellScrollItem;
+    }
+
     private static void finishSuccessfully(ServerLevel level, ServerPlayer player, Spell spell, int spellLevel,
-                                           MagicData data, CastSource source) {
+                                           MagicData data, CastSource source, @Nullable InteractionHand hand) {
         spell.onCast(level, player, spellLevel, data);
         data.getCooldowns().start(spell, spell.getCooldown(spellLevel));
-        source.onCastSucceeded(player, spell);
+        source.onCastSucceeded(player, hand);
     }
 
     private SpellCasting() {

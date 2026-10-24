@@ -2,6 +2,8 @@ package com.example.samurai.magic.data;
 
 import com.example.samurai.magic.casting.CastSource;
 import com.example.samurai.magic.network.MagicNetwork;
+import com.example.samurai.magic.network.SyncCastPacket;
+import com.example.samurai.magic.network.SyncCooldownsPacket;
 import com.example.samurai.magic.network.SyncManaPacket;
 import com.example.samurai.magic.registry.MagicAttributes;
 import com.example.samurai.magic.registry.MagicSpells;
@@ -11,6 +13,7 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.CapabilityManager;
@@ -33,13 +36,11 @@ public class MagicData implements INBTSerializable<CompoundTag> {
 
     /** Fraction of max mana restored per second at mana_regen = 1.0. */
     public static final float BASE_REGEN_FRACTION_PER_SECOND = 0.01f;
-    /** Minimum ticks between two regen-driven sync packets. */
-    private static final int SYNC_INTERVAL = 5;
+    /** Minimum ticks between two regen-driven mana packets. Cast and cooldown changes go out at once. */
+    private static final int MANA_SYNC_INTERVAL = 5;
 
     private final Player player;
     private float mana;
-    private boolean dirty = true;
-    private int ticksSinceSync;
 
     // Current cast. castingSpell == null means idle.
     @Nullable
@@ -48,8 +49,15 @@ public class MagicData implements INBTSerializable<CompoundTag> {
     private int castTicksElapsed;
     private int castTicksRemaining;
     private CastSource castSource = CastSource.NONE;
+    /** Hand holding the item that started the cast; null for item-less sources. */
+    @Nullable
+    private InteractionHand castHand;
 
     private final CooldownTracker cooldowns = new CooldownTracker();
+
+    private boolean manaDirty = true;
+    private boolean castDirty = true;
+    private int ticksSinceManaSync;
 
     public MagicData(Player player) {
         this.player = player;
@@ -60,6 +68,12 @@ public class MagicData implements INBTSerializable<CompoundTag> {
     public static LazyOptional<MagicData> get(Player player) {
         return player.getCapability(CAPABILITY);
     }
+
+    public Player getPlayer() {
+        return player;
+    }
+
+    // ---- mana ----
 
     public float getMaxMana() {
         return (float) player.getAttributeValue(MagicAttributes.MAX_MANA.get());
@@ -73,7 +87,7 @@ public class MagicData implements INBTSerializable<CompoundTag> {
         float clamped = Mth.clamp(value, 0f, getMaxMana());
         if (clamped != mana) {
             mana = clamped;
-            dirty = true;
+            manaDirty = true;
         }
     }
 
@@ -94,13 +108,13 @@ public class MagicData implements INBTSerializable<CompoundTag> {
         return true;
     }
 
-    public Player getPlayer() {
-        return player;
-    }
+    // ---- cooldowns ----
 
     public CooldownTracker getCooldowns() {
         return cooldowns;
     }
+
+    // ---- casting ----
 
     public boolean isCasting() {
         return castingSpell != null;
@@ -133,15 +147,22 @@ public class MagicData implements INBTSerializable<CompoundTag> {
         return castSource;
     }
 
-    public void startCasting(Spell spell, int level, int duration, CastSource source) {
-        castSource = source;
+    @Nullable
+    public InteractionHand getCastHand() {
+        return castHand;
+    }
+
+    public void startCasting(Spell spell, int level, int duration, CastSource source, @Nullable InteractionHand hand) {
         castingSpell = spell.getId();
         castingLevel = level;
         castTicksElapsed = 0;
         castTicksRemaining = duration;
+        castSource = source;
+        castHand = hand;
+        castDirty = true;
     }
 
-    /** Advances the cast by one tick and returns the new elapsed count. */
+    /** Advances the cast by one tick and returns the new elapsed count. Not synced: the client counts too. */
     public int advanceCast() {
         castTicksRemaining--;
         return ++castTicksElapsed;
@@ -153,7 +174,11 @@ public class MagicData implements INBTSerializable<CompoundTag> {
         castTicksElapsed = 0;
         castTicksRemaining = 0;
         castSource = CastSource.NONE;
+        castHand = null;
+        castDirty = true;
     }
+
+    // ---- tick & sync ----
 
     /** Server-side, once per player tick. Mana regen only; casting ticks in SpellCasting. */
     public void tick() {
@@ -166,20 +191,52 @@ public class MagicData implements INBTSerializable<CompoundTag> {
             addMana(max * BASE_REGEN_FRACTION_PER_SECOND * regen / 20f);
         }
 
-        ticksSinceSync++;
-        if (dirty && ticksSinceSync >= SYNC_INTERVAL) {
-            sync();
+        ticksSinceManaSync++;
+        if (manaDirty && ticksSinceManaSync >= MANA_SYNC_INTERVAL) {
+            sendMana();
+        }
+        // Picks up cast/cooldown changes made outside SpellCasting, e.g. by commands.
+        syncStateChanges();
+    }
+
+    /** Sends everything that changed, mana included, right now. */
+    public void sync() {
+        if (manaDirty) {
+            sendMana();
+        }
+        syncStateChanges();
+    }
+
+    /** Sends the full state regardless of what changed. Login, respawn, dimension change. */
+    public void syncAll() {
+        manaDirty = true;
+        castDirty = true;
+        cooldowns.markDirty();
+        sync();
+    }
+
+    private void sendMana() {
+        if (player instanceof ServerPlayer sp && sp.connection != null) {
+            MagicNetwork.sendToPlayer(sp, new SyncManaPacket(mana));
+        }
+        manaDirty = false;
+        ticksSinceManaSync = 0;
+    }
+
+    private void syncStateChanges() {
+        if (!(player instanceof ServerPlayer sp) || sp.connection == null) {
+            return;
+        }
+        if (castDirty) {
+            MagicNetwork.sendToPlayer(sp, SyncCastPacket.of(this));
+            castDirty = false;
+        }
+        if (cooldowns.consumeDirty()) {
+            MagicNetwork.sendToPlayer(sp, SyncCooldownsPacket.of(cooldowns));
         }
     }
 
-    /** Sends current state to the owning client immediately. */
-    public void sync() {
-        if (player instanceof ServerPlayer serverPlayer && serverPlayer.connection != null) {
-            MagicNetwork.sendToPlayer(serverPlayer, new SyncManaPacket(mana));
-        }
-        dirty = false;
-        ticksSinceSync = 0;
-    }
+    // ---- persistence ----
 
     /** Called from PlayerEvent.Clone (death or End-portal return). */
     public void copyFrom(MagicData other) {
@@ -189,8 +246,10 @@ public class MagicData implements INBTSerializable<CompoundTag> {
         this.castTicksElapsed = other.castTicksElapsed;
         this.castTicksRemaining = other.castTicksRemaining;
         this.castSource = other.castSource;
+        this.castHand = other.castHand;
         this.cooldowns.copyFrom(other.cooldowns);
-        this.dirty = true;
+        this.manaDirty = true;
+        this.castDirty = true;
     }
 
     @Override
@@ -204,6 +263,9 @@ public class MagicData implements INBTSerializable<CompoundTag> {
             cast.putInt("Elapsed", castTicksElapsed);
             cast.putInt("Remaining", castTicksRemaining);
             cast.putString("Source", castSource.name());
+            if (castHand != null) {
+                cast.putString("Hand", castHand.name());
+            }
             tag.put("Cast", cast);
         }
         tag.put("Cooldowns", cooldowns.save());
@@ -222,8 +284,14 @@ public class MagicData implements INBTSerializable<CompoundTag> {
             castTicksElapsed = cast.getInt("Elapsed");
             castTicksRemaining = cast.getInt("Remaining");
             castSource = CastSource.byName(cast.getString("Source"));
+            castHand = switch (cast.getString("Hand")) {
+                case "MAIN_HAND" -> InteractionHand.MAIN_HAND;
+                case "OFF_HAND" -> InteractionHand.OFF_HAND;
+                default -> null;
+            };
         }
         cooldowns.load(tag.getList("Cooldowns", Tag.TAG_COMPOUND));
-        dirty = true;
+        manaDirty = true;
+        castDirty = true;
     }
 }

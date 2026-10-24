@@ -2,6 +2,7 @@ package com.example.samurai.magic.item;
 
 import com.example.samurai.SamuraiMod;
 import com.example.samurai.magic.casting.CastSource;
+import com.example.samurai.magic.client.ClientCastPrediction;
 import com.example.samurai.magic.casting.SpellCasting;
 import com.example.samurai.magic.data.MagicData;
 import com.example.samurai.magic.spell.CastEndReason;
@@ -17,6 +18,8 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.fml.DistExecutor;
 
 import javax.annotation.Nullable;
 import java.util.List;
@@ -38,9 +41,14 @@ public final class SpellItemUse {
         }
         boolean held = slot.spell().getCastType().hasDuration();
 
-        // The client cannot see cooldowns yet, so it optimistically starts the hold;
-        // the server decides. A refused cast just leaves the client holding until release.
         if (level.isClientSide) {
+            // Predict from the synced mana/cooldown/cast state so a doomed cast never
+            // starts the hold pose. The server still decides and reports the reason.
+            CastResult predicted = DistExecutor.unsafeCallWhenOn(Dist.CLIENT,
+                    () -> () -> ClientCastPrediction.predict(slot.spell(), slot.level()));
+            if (predicted != null && !predicted.isSuccess()) {
+                return InteractionResultHolder.fail(stack);
+            }
             if (held) {
                 player.startUsingItem(hand);
                 return InteractionResultHolder.consume(stack);
@@ -48,9 +56,14 @@ public final class SpellItemUse {
             return InteractionResultHolder.success(stack);
         }
 
-        CastResult result = SpellCasting.tryCast((ServerPlayer) player, slot.spell(), slot.level(), source);
+        ServerPlayer serverPlayer = (ServerPlayer) player;
+        CastResult result = SpellCasting.tryCast(serverPlayer, slot.spell(), slot.level(), source, hand);
         if (!result.isSuccess()) {
             player.displayClientMessage(result.getMessage(), true);
+            if (held) {
+                // Prediction was wrong (stale state); undo the client's hold.
+                SpellCasting.stopClientUsing(serverPlayer);
+            }
             return InteractionResultHolder.fail(stack);
         }
         if (held) {
