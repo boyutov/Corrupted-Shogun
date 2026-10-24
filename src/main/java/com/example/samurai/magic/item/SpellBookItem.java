@@ -121,7 +121,12 @@ public class SpellBookItem extends Item {
         if (active >= 0 && active < slots.size() && slots.get(active) != null) {
             return active;
         }
-        return slots.indexOf(slots.stream().filter(s -> s != null).findFirst().orElse(null));
+        for (int i = 0; i < slots.size(); i++) {
+            if (slots.get(i) != null) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     @Nullable
