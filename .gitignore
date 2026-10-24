@@ -7,4 +7,5 @@ eclipse/
 .vscode/
 out/
 *.log
-.claude/
+tools/
+__pycache__/

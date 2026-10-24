@@ -48,6 +48,73 @@ public final class SamuraiVfx {
     // -----------------------------------------------------------------------
     // Entry points
     // -----------------------------------------------------------------------
+    /** Persistent aura and anticipation particles, driven by synced combat state. */
+    public static void tick(SamuraiBossEntity boss) {
+        Level level = boss.level();
+        if (boss.isEnraged() && boss.tickCount % 2 == 0) {
+            for (int i = 0; i < 3; i++) {
+                double angle = boss.tickCount * 0.17 + i * TAU / 3;
+                double radius = 0.9 + RANDOM.nextDouble() * 0.65;
+                level.addParticle(ParticleTypes.SOUL_FIRE_FLAME,
+                        boss.getX() + Math.cos(angle) * radius,
+                        boss.getY() + RANDOM.nextDouble() * 2.6,
+                        boss.getZ() + Math.sin(angle) * radius, 0, 0.035, 0);
+            }
+        }
+        if (boss.getPhase() == SamuraiBossEntity.PHASE_SKYFALL) {
+            int age = boss.getPhaseAge();
+            Vec3 point = boss.getSkyPoint();
+            if (age < SamuraiBossEntity.SKY_IMPACT_TICK && boss.tickCount % 2 == 0) {
+                double a = age * 0.35;
+                for (int i = 0; i < 3; i++) {
+                    double angle = a + i * TAU / 3;
+                    level.addParticle(new DustParticleOptions(CORRUPT_PALE, 0.8F),
+                            point.x + Math.cos(angle) * 2.5, point.y + 0.1,
+                            point.z + Math.sin(angle) * 2.5, 0, 0.025, 0);
+                }
+            }
+            if (age == SamuraiBossEntity.SKY_CROUCH_TICKS) {
+                for (int i = 0; i < 24; i++) {
+                    double angle = i * TAU / 24;
+                    level.addParticle(ParticleTypes.POOF, boss.getX(), boss.getY() + 0.1, boss.getZ(),
+                            Math.cos(angle) * 0.22, 0.04, Math.sin(angle) * 0.22);
+                }
+            }
+        }
+        if (boss.isSwordTrailActive() && boss.tickCount % 2 == 0) {
+            Vec3 tip = resolve(boss, "blade_tip");
+            level.addParticle(ParticleTypes.ELECTRIC_SPARK, tip.x, tip.y, tip.z,
+                    (RANDOM.nextDouble() - 0.5) * 0.15, 0.02, (RANDOM.nextDouble() - 0.5) * 0.15);
+        }
+    }
+
+    /** Impact effects come from the actual server impact, including when a leap is obstructed. */
+    public static void onCombatEvent(SamuraiBossEntity boss, byte event) {
+        if (!boss.level().isClientSide() || !boss.isAlive()) return;
+        Vec3 at = event == SamuraiBossEntity.SKY_IMPACT_EVENT ? boss.getSkyPoint() : boss.position();
+        if (event == SamuraiBossEntity.SKY_IMPACT_EVENT) {
+            shockwave(boss.level(), boss, at);
+            boss.level().addParticle(ParticleTypes.FLASH, at.x, at.y + 0.35, at.z, 0, 0, 0);
+            for (int i = 0; i < 56; i++) {
+                double angle = i * TAU / 56;
+                double speed = 0.25 + RANDOM.nextDouble() * 0.4;
+                boss.level().addParticle(ParticleTypes.END_ROD, at.x, at.y + 0.2, at.z,
+                        Math.cos(angle) * speed, 0.12 + RANDOM.nextDouble() * 0.6, Math.sin(angle) * speed);
+            }
+        } else {
+            burst(boss.level(), at.add(0, 1.6, 0));
+            for (int i = 0; i < 36; i++) {
+                double angle = i * TAU / 36;
+                boss.level().addParticle(ParticleTypes.SOUL_FIRE_FLAME,
+                        at.x + Math.cos(angle) * 1.2, at.y + 0.25, at.z + Math.sin(angle) * 1.2,
+                        Math.cos(angle) * 0.22, 0.12, Math.sin(angle) * 0.22);
+            }
+        }
+        Player viewer = Minecraft.getInstance().player;
+        if (viewer != null) CameraShake.addAtDistance(event == SamuraiBossEntity.SKY_IMPACT_EVENT ? 5.5F : 3.8F,
+                (float) viewer.position().distanceTo(at), 28, 0.82F);
+    }
+
     public static void onParticleKeyframe(ParticleKeyframeEvent<SamuraiBossEntity> event) {
         SamuraiBossEntity boss = event.getAnimatable();
         Level level = boss.level();

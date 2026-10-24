@@ -1,9 +1,8 @@
 # Corrupted Shogun
 
-A self-contained Forge 1.20.1 mod built around a single boss fight: a
-three-block-tall undead samurai with full GeckoLib animations, a multi-phase
-dash mechanic, a boss-drop katana with its own active ability, and a spawn
-egg to summon him anywhere.
+A Forge 1.20.1 mod built around a boss fight with a three-block-tall corrupted
+samurai, plus a small spellbook magic system: mana, spell scrolls, a spell
+wheel and two heavy-hitting spells.
 
 ![Minecraft](https://img.shields.io/badge/Minecraft-1.20.1-62B47A)
 ![Forge](https://img.shields.io/badge/Forge-47.4.8-1F6FEB)
@@ -14,121 +13,69 @@ egg to summon him anywhere.
 
 ### The boss — `samuraiboss:samurai_shogun`
 
-- 300 HP, GeckoLib-animated (idle, walk, slash, heavy attack, defend stance,
-  death), with a boss bar and darkened screen while fought.
-- **Phase mechanic** — fires once at 75%, 50% and 25% HP:
-  1. **Windup** (1s) — the boss squares up and locks onto its target.
-  2. **Dash** — charges 20 blocks in a straight line, damaging (1.5× attack
-     damage) and knocking back everything in its path.
-  3. **Turn & guard** — spins 180° and regenerates 10 HP/s until it's hit
-     again, capped at 15 seconds so it can't stall forever.
+- 600 HP, heavy armour, boss bar, fully animated with GeckoLib.
+- Wields a nodachi one-handed: a fast diagonal slash and a slow overhead
+  slam that knocks targets into the air. Damage lands exactly on the frame
+  the blade connects.
+- **Dash phase** at 75%, 50% and 25% HP: winds up, charges 20 blocks through
+  everything in its path, then turns and guards while regenerating until hit.
+- **Skyfall** — leaps into the air and crashes down on its target, sending
+  out shockwaves you can jump over.
+- **Rage** at 30% HP — a roar, then faster and harder-hitting attacks.
 - Drops its katana on death.
 
 ### The katana — `samuraiboss:samurai_blade`
 
-- Netherite-tier sword, 12 attack damage.
-- **Active ability — Shadow Dash**: hold the blade, hold Shift, right-click.
-  The wielder dashes 10 blocks forward with a real run (not a teleport — the
-  player's own movement physics drive it, both server- and client-side, so it
-  plays the normal running animation and respects collision), damaging
-  everything along the way and granting Regeneration II for 30 seconds.
+- Netherite-tier sword.
+- **Shadow Dash** — Shift + right-click: a 10-block dash that damages
+  everything along the way and grants Regeneration II for 30 seconds.
   1-minute cooldown.
-- The tooltip documents the ability in-game.
 
-### Spawn egg — `samuraiboss:samurai_shogun_spawn_egg`
+### Magic
 
-Standard spawn egg, available in the Spawn Eggs creative tab, colored to
-match the boss's corrupted purple palette.
+- **Spell book** with 5 spell slots. Put it in the book slot of your
+  inventory (next to the armour, above the offhand) to cast hands-free, or
+  hold it in your hand.
+- **Spell scrolls** — cast once from the scroll, or right-click a scroll onto
+  a book to write the spell into it.
+- **Mana** bar and per-spell cooldowns on the HUD.
+- **Meteor** — rise into the air and call down a meteor that leaves a crater.
+  Once started, the cast cannot be interrupted.
+- **Black Hole** — opens a seven-second singularity where you look, pulling
+  in and damaging everything nearby except you.
 
-## Requirements
+| Action | Default key |
+|---|---|
+| Spell wheel (hold, release on a spell) | `R` |
+| Previous / next spell | `Z` / `X` |
+| Cast from the equipped book (hold) | `V` |
 
-- **JDK 17** (Forge 1.20.1 does not support Java 21). If you don't have it,
-  Gradle will fetch one automatically via the toolchain resolver configured
-  in `settings.gradle`.
+All keys can be rebound in Options → Controls.
 
-## Running it
+Commands for testing: `/mana`, `/spell`, `/spellbook`.
+
+## Installing
+
+1. Install **Forge 1.20.1** (47.x).
+2. Put **GeckoLib 4.4+ for Forge 1.20.1** and `samuraiboss-1.0.0.jar` into
+   the `mods` folder.
+
+Multiplayer works the same way: the server and every player need the same
+jar.
+
+## Building from source
+
+Requires **JDK 17** (Gradle fetches it automatically if missing).
 
 ```bash
 git clone https://github.com/boyutov/Corrupted-Shogun.git
 cd Corrupted-Shogun
-./gradlew runClient          # Windows: gradlew.bat runClient
+./gradlew runClient          # run the game in a dev environment
+./gradlew build              # jar in build/libs/
 ```
 
-The first run takes a while — Gradle has to download Forge, Minecraft, and
-GeckoLib (several gigabytes). Subsequent runs start in seconds.
-
-In-game, either:
-
-```
-/summon samuraiboss:samurai_shogun ~ ~ ~2
-```
-
-or grab the spawn egg from the creative inventory (Spawn Eggs tab) or via
-
-```
-/give @s samuraiboss:samurai_shogun_spawn_egg
-```
-
-## Building a distributable jar
-
-```bash
-./gradlew build
-```
-
-Output: `build/libs/samuraiboss-1.0.0.jar`. To run it outside the dev
-environment you also need **GeckoLib 4.8.4 for Forge 1.20.1** installed
-alongside it — it's declared as a mandatory dependency in `mods.toml`.
-
-## Project structure
-
-```
-build.gradle, settings.gradle, gradle.properties   — build configuration
-gradlew / gradlew.bat / gradle/wrapper/             — Gradle 8.1.1 wrapper
-
-src/main/java/com/example/samurai/
-├── SamuraiMod.java                   — mod entry point, registry wiring, creative tab
-├── registry/
-│   ├── ModEntities.java              — boss EntityType registration
-│   └── ModItems.java                 — katana + spawn egg registration
-├── item/
-│   └── SamuraiBladeItem.java         — the katana's Shadow Dash ability
-├── entity/
-│   └── SamuraiBossEntity.java        — AI, attacks, phase/dash state machine, animation controllers
-└── client/
-    ├── ClientSetup.java              — renderer binding
-    ├── SamuraiBossModel.java         — resource paths, head rotation
-    ├── SamuraiBossRenderer.java      — renderer, emissive layer, sword trail hookup
-    └── vfx/
-        ├── SamuraiVfx.java           — particle/sound keyframe handlers
-        ├── SwordTrail.java           — blade trail ribbon
-        └── CameraShake.java          — hit-reaction camera shake
-
-src/main/resources/
-├── META-INF/mods.toml
-├── pack.mcmeta
-└── assets/samuraiboss/
-    ├── geo/samurai_shogun.geo.json
-    ├── animations/samurai_shogun.animation.json
-    ├── textures/entity/samurai_shogun.png            (256×256)
-    ├── textures/entity/samurai_shogun_glowmask.png
-    ├── textures/item/samurai_blade.png
-    ├── models/item/samurai_blade.json, samurai_shogun_spawn_egg.json
-    └── lang/en_us.json, ru_ru.json
-```
-
-See `MODEL_NOTES.md` for details on the model, bones, rotation conventions,
-and VFX keyframes.
-
-## Changing the mod ID
-
-If you fork this to build your own mod, update all of these together or
-resources won't resolve:
-
-1. `gradle.properties` → `mod_id=...`
-2. `SamuraiMod.MOD_ID` in `src/main/java/com/example/samurai/SamuraiMod.java`
-3. Rename `src/main/resources/assets/samuraiboss/` to match
-4. The lang keys in both `lang/*.json` files (`entity.<mod_id>.samurai_shogun`,
-   `item.<mod_id>.samurai_blade`, etc.)
+In-game: `/summon samuraiboss:samurai_shogun ~ ~ ~2` or use the spawn egg
+from the Spawn Eggs creative tab.
 
 ## License
 

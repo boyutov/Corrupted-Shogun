@@ -71,6 +71,11 @@ public final class SwordTrail {
     public void sample(GeoModel<SamuraiBossEntity> model, SamuraiBossEntity entity, float partialTick) {
         float now = entity.tickCount + partialTick;
         expire(now);
+        if (!entity.isSwordTrailActive()) {
+            lastBase = null;
+            lastTip = null;
+            return;
+        }
 
         Optional<Vec3> base = worldPos(model, "blade_base");
         Optional<Vec3> tip = worldPos(model, "blade_tip");
