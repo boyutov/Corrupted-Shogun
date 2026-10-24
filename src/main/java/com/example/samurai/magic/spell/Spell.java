@@ -38,6 +38,7 @@ public abstract class Spell {
     private final int cooldown;
     private final int castTime;
     private final float interruptDamageThreshold;
+    private final boolean devOnly;
 
     @Nullable
     private ResourceLocation id;
@@ -54,6 +55,12 @@ public abstract class Spell {
         this.cooldown = properties.cooldown;
         this.castTime = properties.castTime;
         this.interruptDamageThreshold = properties.interruptDamageThreshold;
+        this.devOnly = properties.devOnly;
+    }
+
+    /** Pipeline probes and the like: castable by command, but kept out of the creative tab. */
+    public boolean isDevOnly() {
+        return devOnly;
     }
 
     public ResourceLocation getId() {
@@ -164,6 +171,12 @@ public abstract class Spell {
         private int cooldown;
         private int castTime;
         private float interruptDamageThreshold;
+        private boolean devOnly;
+
+        public Properties devOnly() {
+            this.devOnly = true;
+            return this;
+        }
 
         public Properties school(SpellSchool school) {
             this.school = school;

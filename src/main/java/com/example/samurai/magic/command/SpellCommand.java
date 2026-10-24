@@ -4,6 +4,7 @@ import com.example.samurai.SamuraiMod;
 import com.example.samurai.magic.casting.CastSource;
 import com.example.samurai.magic.casting.SpellCasting;
 import com.example.samurai.magic.data.MagicData;
+import com.example.samurai.magic.item.SpellScrollItem;
 import com.example.samurai.magic.registry.MagicSpells;
 import com.example.samurai.magic.spell.CastEndReason;
 import com.example.samurai.magic.spell.CastResult;
@@ -21,6 +22,7 @@ import net.minecraft.commands.arguments.ResourceLocationArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -32,6 +34,7 @@ import net.minecraftforge.fml.common.Mod;
  * /spell cancel
  * /spell status
  * /spell cooldowns clear
+ * /spell scroll &lt;spell&gt; [level]  gives a scroll (max level by default)
  * </pre>
  */
 @Mod.EventBusSubscriber(modid = SamuraiMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
@@ -64,6 +67,12 @@ public final class SpellCommand {
                         .executes(SpellCommand::cancel))
                 .then(Commands.literal("status")
                         .executes(SpellCommand::status))
+                .then(Commands.literal("scroll")
+                        .then(Commands.argument("spell", ResourceLocationArgument.id())
+                                .suggests(SPELL_SUGGESTIONS)
+                                .executes(ctx -> giveScroll(ctx, -1))
+                                .then(Commands.argument("level", IntegerArgumentType.integer(1))
+                                        .executes(ctx -> giveScroll(ctx, IntegerArgumentType.getInteger(ctx, "level"))))))
                 .then(Commands.literal("cooldowns")
                         .then(Commands.literal("clear")
                                 .executes(SpellCommand::clearCooldowns))));
@@ -85,6 +94,23 @@ public final class SpellCommand {
         }
         ctx.getSource().sendFailure(result.getMessage());
         return 0;
+    }
+
+    private static int giveScroll(CommandContext<CommandSourceStack> ctx, int level) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException();
+        ResourceLocation id = ResourceLocationArgument.getId(ctx, "spell");
+        Spell spell = MagicSpells.byId(id);
+        if (spell == null) {
+            throw UNKNOWN_SPELL.create(id);
+        }
+        int spellLevel = spell.clampLevel(level < 0 ? spell.getMaxLevel() : level);
+        ItemStack scroll = SpellScrollItem.create(spell, spellLevel);
+        if (!player.getInventory().add(scroll)) {
+            player.drop(scroll, false);
+        }
+        ctx.getSource().sendSuccess(() -> Component.translatable(KEY + "scroll_given", spell.getDisplayName(), spellLevel),
+                false);
+        return 1;
     }
 
     private static int cancel(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {

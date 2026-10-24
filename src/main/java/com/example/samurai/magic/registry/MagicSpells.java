@@ -31,6 +31,7 @@ public final class MagicSpells {
     // Pipeline probes, not real spells. See TestStubSpell.
     public static final RegistryObject<Spell> TEST_STUB_INSTANT = SPELLS.register("test_stub_instant",
             () -> new TestStubSpell(new Spell.Properties()
+                    .devOnly()
                     .castType(CastType.INSTANT)
                     .levels(1, 3)
                     .manaCost(10f, 5f)
@@ -38,6 +39,7 @@ public final class MagicSpells {
 
     public static final RegistryObject<Spell> TEST_STUB_LONG = SPELLS.register("test_stub_long",
             () -> new TestStubSpell(new Spell.Properties()
+                    .devOnly()
                     .castType(CastType.LONG)
                     .levels(1, 3)
                     .manaCost(25f, 5f)
@@ -49,6 +51,7 @@ public final class MagicSpells {
     // 5 s channel, 4 mana per second, threshold left at 0 (never interrupted by damage).
     public static final RegistryObject<Spell> TEST_STUB_CONTINUOUS = SPELLS.register("test_stub_continuous",
             () -> new TestStubSpell(new Spell.Properties()
+                    .devOnly()
                     .castType(CastType.CONTINUOUS)
                     .levels(1, 3)
                     .manaCost(4f, 2f)

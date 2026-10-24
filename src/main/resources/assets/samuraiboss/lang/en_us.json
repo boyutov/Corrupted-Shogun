@@ -53,7 +53,7 @@
   "screen.samuraiboss.spell_book": "Choose a spell",
   "screen.samuraiboss.spell_book.empty": "— empty —",
   "key.categories.samuraiboss": "Shogun Magic",
-  "key.samuraiboss.spell_menu": "Spell book menu",
+  "key.samuraiboss.spell_menu": "Spell wheel (hold)",
   "commands.samuraiboss.spellbook.no_book": "Hold a spell book in your main hand",
   "commands.samuraiboss.spellbook.full": "The spell book is full",
   "commands.samuraiboss.spellbook.added": "Added %s to slot %s",
@@ -65,5 +65,11 @@
   "entity.samuraiboss.meteor": "Meteor",
   "message.samuraiboss.meteor.no_room": "No room to take off",
   "tooltip.samuraiboss.scroll_free": "No mana: the scroll is spent instead",
-  "message.samuraiboss.meteor.no_ground": "No ground to strike"
+  "message.samuraiboss.meteor.no_ground": "No ground to strike",
+  "screen.samuraiboss.spell_book.no_spells": "No spells. Right-click a scroll onto the book in your inventory.",
+  "commands.samuraiboss.spell.scroll_given": "Gave a scroll of %s, level %s",
+  "message.samuraiboss.inscribe.added": "%s written into the book",
+  "message.samuraiboss.inscribe.upgraded": "%s upgraded in the book",
+  "message.samuraiboss.inscribe.already_known": "The book already holds %s at this level or higher",
+  "message.samuraiboss.inscribe.full": "The book is full, no room for %s"
 }

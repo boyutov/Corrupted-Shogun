@@ -34,6 +34,10 @@ minecraft {
             property 'mixin.env.remapRefMap', 'true'
             property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
 
+            // GeckoLib registers its demo bat, race car, etc. (with spawn eggs) whenever it runs
+            // outside production. They are not part of this mod; keep them out of dev runs.
+            property 'geckolib.disable_examples', 'true'
+
             mods {
                 "${mod_id}" {
                     source sourceSets.main

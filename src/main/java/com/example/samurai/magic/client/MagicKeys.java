@@ -17,7 +17,7 @@ import org.lwjgl.glfw.GLFW;
 
 import java.util.List;
 
-/** Rebindable in Options → Controls, under the mod's own category. */
+/** Rebindable in Options → Controls, under the mod's own category. Hold the menu key for the spell wheel. */
 public final class MagicKeys {
 
     public static final String CATEGORY = "key.categories." + SamuraiMod.MOD_ID;
@@ -39,7 +39,7 @@ public final class MagicKeys {
             }
             InteractionHand hand = ClientSpellInfo.bookHand(player);
             if (hand != null) {
-                mc.setScreen(new SpellBookScreen(hand));
+                mc.setScreen(new SpellWheelScreen(hand));
             } else {
                 player.displayClientMessage(Component.translatable("message." + SamuraiMod.MOD_ID + ".no_book"), true);
             }

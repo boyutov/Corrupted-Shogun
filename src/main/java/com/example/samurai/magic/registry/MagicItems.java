@@ -36,16 +36,16 @@ public final class MagicItems {
                     .icon(() -> new ItemStack(SPELL_BOOK.get()))
                     .displayItems((params, output) -> {
                         output.accept(SPELL_BOOK.get());
-                        output.accept(createTestBook());
+                        // One scroll per real spell, at full power; other levels: /spell scroll <spell> <level>.
                         for (Spell spell : castableSpells()) {
-                            for (int level = spell.getMinLevel(); level <= spell.getMaxLevel(); level++) {
-                                output.accept(SpellScrollItem.create(spell, level));
+                            if (!spell.isDevOnly()) {
+                                output.accept(SpellScrollItem.create(spell, spell.getMaxLevel()));
                             }
                         }
                     })
                     .build());
 
-    /** A book pre-filled with every registered spell, for testing. */
+    /** A book pre-filled with every registered spell, dev ones included. Used by MagicAutoTest. */
     public static ItemStack createTestBook() {
         ItemStack stack = new ItemStack(SPELL_BOOK.get());
         for (Spell spell : castableSpells()) {

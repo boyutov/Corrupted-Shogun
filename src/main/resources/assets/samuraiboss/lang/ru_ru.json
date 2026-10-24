@@ -53,7 +53,7 @@
   "screen.samuraiboss.spell_book": "Выбор заклинания",
   "screen.samuraiboss.spell_book.empty": "— пусто —",
   "key.categories.samuraiboss": "Магия Сёгуна",
-  "key.samuraiboss.spell_menu": "Меню книги заклинаний",
+  "key.samuraiboss.spell_menu": "Колесо заклинаний (удерживать)",
   "commands.samuraiboss.spellbook.no_book": "Возьмите книгу заклинаний в основную руку",
   "commands.samuraiboss.spellbook.full": "В книге нет свободных слотов",
   "commands.samuraiboss.spellbook.added": "%s записано в слот %s",
@@ -65,5 +65,11 @@
   "entity.samuraiboss.meteor": "Метеор",
   "message.samuraiboss.meteor.no_room": "Нет места для взлёта",
   "tooltip.samuraiboss.scroll_free": "Без маны: расходуется свиток",
-  "message.samuraiboss.meteor.no_ground": "Нет земли для удара"
+  "message.samuraiboss.meteor.no_ground": "Нет земли для удара",
+  "screen.samuraiboss.spell_book.no_spells": "Нет заклинаний. Кликните ПКМ свитком по книге в инвентаре.",
+  "commands.samuraiboss.spell.scroll_given": "Выдан свиток: %s, уровень %s",
+  "message.samuraiboss.inscribe.added": "%s записано в книгу",
+  "message.samuraiboss.inscribe.upgraded": "%s в книге улучшено",
+  "message.samuraiboss.inscribe.already_known": "В книге уже есть %s этого уровня или выше",
+  "message.samuraiboss.inscribe.full": "В книге нет места для %s"
 }

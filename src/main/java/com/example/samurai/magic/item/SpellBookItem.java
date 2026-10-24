@@ -7,6 +7,10 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.entity.SlotAccess;
+import net.minecraft.world.inventory.ClickAction;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.LivingEntity;
@@ -21,9 +25,13 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 
 /**
- * A book with a fixed number of spell slots and one active slot.
+ * A book with a fixed number of spell slots and one active slot. Spells are added the
+ * way items go into a bundle: right-click the book with a scroll on the cursor (or the
+ * scroll with the book on the cursor). The scroll is used up.
+ *
  * NBT: {@code SpellBook: {Active: int, Slots: [{Slot: int, Spell: id, Level: int}, ...]}} — sparse.
  */
 public class SpellBookItem extends Item {
@@ -133,6 +141,75 @@ public class SpellBookItem extends Item {
     public static SpellSlot getActive(ItemStack stack) {
         int index = getEffectiveActiveIndex(stack);
         return index < 0 ? null : getSlots(stack).get(index);
+    }
+
+    /** Result of writing a scroll into a book. */
+    public enum Inscribe {
+        ADDED, UPGRADED, ALREADY_KNOWN, FULL;
+
+        public boolean consumesScroll() {
+            return this == ADDED || this == UPGRADED;
+        }
+    }
+
+    /**
+     * Writes the scroll's spell into the book: into the first empty slot, or over the same
+     * spell if the scroll's level is higher. Does not touch the scroll.
+     */
+    public static Inscribe inscribe(ItemStack book, SpellSlot spell) {
+        List<SpellSlot> slots = getSlots(book);
+        for (int i = 0; i < slots.size(); i++) {
+            SpellSlot existing = slots.get(i);
+            if (existing != null && existing.spell() == spell.spell()) {
+                if (existing.level() >= spell.level()) {
+                    return Inscribe.ALREADY_KNOWN;
+                }
+                slots.set(i, spell);
+                setSlots(book, slots);
+                return Inscribe.UPGRADED;
+            }
+        }
+        return addSpell(book, spell) >= 0 ? Inscribe.ADDED : Inscribe.FULL;
+    }
+
+    /** Scroll on the cursor, right-clicked onto this book in a slot. */
+    @Override
+    public boolean overrideOtherStackedOnMe(ItemStack book, ItemStack carried, Slot slot, ClickAction action,
+                                            Player player, SlotAccess carriedAccess) {
+        if (action != ClickAction.SECONDARY || !slot.allowModification(player)) {
+            return false;
+        }
+        return tryInscribe(book, carried, player);
+    }
+
+    /** This book on the cursor, right-clicked onto a scroll in a slot. */
+    @Override
+    public boolean overrideStackedOnOther(ItemStack book, Slot slot, ClickAction action, Player player) {
+        if (action != ClickAction.SECONDARY || !slot.allowModification(player)) {
+            return false;
+        }
+        return tryInscribe(book, slot.getItem(), player);
+    }
+
+    /** Runs on both sides like the bundle does, so the client shows the result at once. */
+    private static boolean tryInscribe(ItemStack book, ItemStack scroll, Player player) {
+        SpellSlot spell = SpellScrollItem.getSpell(scroll);
+        if (spell == null) {
+            return false;
+        }
+        Inscribe result = inscribe(book, spell);
+        if (result.consumesScroll()) {
+            scroll.shrink(1);
+            player.playSound(SoundEvents.BOOK_PAGE_TURN, 1f, 1f);
+            player.playSound(SoundEvents.ENCHANTMENT_TABLE_USE, 0.6f, 1.2f);
+        } else {
+            player.playSound(SoundEvents.VILLAGER_NO, 0.6f, 1f);
+        }
+        if (!player.level().isClientSide) {
+            player.displayClientMessage(Component.translatable("message." + SamuraiMod.MOD_ID + ".inscribe."
+                    + result.name().toLowerCase(Locale.ROOT), spell.getDisplayName()), true);
+        }
+        return true;
     }
 
     @Override

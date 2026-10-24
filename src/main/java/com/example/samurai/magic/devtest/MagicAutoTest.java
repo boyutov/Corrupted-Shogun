@@ -3,8 +3,9 @@ package com.example.samurai.magic.devtest;
 import com.example.samurai.SamuraiMod;
 import com.example.samurai.magic.casting.SpellCasting;
 import com.example.samurai.magic.client.ClientMagicData;
+import com.example.samurai.magic.client.ClientSpellInfo;
 import com.example.samurai.magic.client.MagicKeys;
-import com.example.samurai.magic.client.SpellBookScreen;
+import com.example.samurai.magic.client.SpellWheelScreen;
 import com.example.samurai.magic.data.MagicData;
 import com.example.samurai.magic.entity.MeteorEntity;
 import com.example.samurai.magic.entity.MeteorImpact;
@@ -287,9 +288,10 @@ public final class MagicAutoTest {
 
         // 2. Book menu on R, select the LONG stub by clicking its button
         act("press R", () -> KeyMapping.click(MagicKeys.OPEN_SPELL_MENU.getKey()));
-        until("2 R opens the spell book screen", () -> mc.screen instanceof SpellBookScreen, 40);
+        until("2 R opens the spell wheel", () -> mc.screen instanceof SpellWheelScreen, 40);
         screenshot("02_book_menu");
-        act("click Test Stub (Long)", () -> clickButton(MagicSpells.TEST_STUB_LONG.get()));
+        act("pick Test Stub (Long) on the wheel", () -> ((SpellWheelScreen) mc.screen).selectSlotForTest(
+                bookSlotOf(MagicSpells.TEST_STUB_LONG.get())));
         waitTicks(5);
         check("2 server book copy has the LONG stub active", () -> serverActive() == MagicSpells.TEST_STUB_LONG.get());
         act("close menu", () -> mc.setScreen(null));
@@ -320,8 +322,12 @@ public final class MagicAutoTest {
         screenshot("04_hud_cooldown");
         act("release RMB", () -> holdUse(false));
         act("press R", () -> KeyMapping.click(MagicKeys.OPEN_SPELL_MENU.getKey()));
-        until("menu open", () -> mc.screen instanceof SpellBookScreen, 40);
-        check("6 menu label shows the LONG stub's cooldown", () -> buttonText(MagicSpells.TEST_STUB_LONG.get()).matches(".*\\d+[.,]\\ds.*"));
+        until("wheel open", () -> mc.screen instanceof SpellWheelScreen, 40);
+        check("6 the LONG stub's label shows its cooldown", () -> {
+            String label = ClientSpellInfo.labelWithCooldown(new SpellSlot(MagicSpells.TEST_STUB_LONG.get(), 1)).getString();
+            record("   label: " + label);
+            return label.matches(".*\\d+[.,]\\ds.*");
+        });
         screenshot("05_menu_cooldown");
         act("close menu", () -> mc.setScreen(null));
 
@@ -601,6 +607,16 @@ public final class MagicAutoTest {
         if (down) {
             KeyMapping.click(mc.options.keyUse.getKey());
         }
+    }
+
+    private int bookSlotOf(Spell spell) {
+        List<SpellSlot> slots = SpellBookItem.getSlots(mc.player.getInventory().getItem(0));
+        for (int i = 0; i < slots.size(); i++) {
+            if (slots.get(i) != null && slots.get(i).spell() == spell) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     private void clickButton(Spell spell) {
