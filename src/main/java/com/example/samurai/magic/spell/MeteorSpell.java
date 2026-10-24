@@ -252,10 +252,19 @@ public class MeteorSpell extends Spell {
         return null;
     }
 
+    /**
+     * Unbreakable blocks (bedrock) always count as ground: nothing lies under the world's
+     * bottom layer, so the usual "solid blocks below" test would wrongly reject it, e.g. on
+     * the floor of an old crater in a superflat world. Below the world counts as solid.
+     */
     private static boolean isGroundMass(ServerLevel level, BlockPos top) {
+        if (level.getBlockState(top).getDestroySpeed(level, top) < 0) {
+            return true;
+        }
         int solid = 0;
         for (int i = 0; i < GROUND_PROBE; i++) {
-            if (isSolid(level, top.below(i))) {
+            BlockPos pos = top.below(i);
+            if (pos.getY() < level.getMinBuildHeight() || isSolid(level, pos)) {
                 solid++;
             }
         }
