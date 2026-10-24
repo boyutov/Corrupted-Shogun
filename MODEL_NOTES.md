@@ -10,15 +10,15 @@ assets/modid/animations/samurai_shogun.animation.json
 assets/modid/textures/entity/samurai_shogun.png            (256x256)
 assets/modid/textures/entity/samurai_shogun_glowmask.png   (emissive)
 
-java/com/example/samurai/SamuraiMod.java
-java/com/example/samurai/registry/ModEntities.java
-java/com/example/samurai/entity/SamuraiBossEntity.java
-java/com/example/samurai/client/SamuraiBossModel.java
-java/com/example/samurai/client/SamuraiBossRenderer.java
-java/com/example/samurai/client/ClientSetup.java
-java/com/example/samurai/client/vfx/SamuraiVfx.java
-java/com/example/samurai/client/vfx/SwordTrail.java
-java/com/example/samurai/client/vfx/CameraShake.java
+java/com/kushtarbek/shogun/SamuraiMod.java
+java/com/kushtarbek/shogun/registry/ModEntities.java
+java/com/kushtarbek/shogun/entity/SamuraiBossEntity.java
+java/com/kushtarbek/shogun/client/SamuraiBossModel.java
+java/com/kushtarbek/shogun/client/SamuraiBossRenderer.java
+java/com/kushtarbek/shogun/client/ClientSetup.java
+java/com/kushtarbek/shogun/client/vfx/SamuraiVfx.java
+java/com/kushtarbek/shogun/client/vfx/SwordTrail.java
+java/com/kushtarbek/shogun/client/vfx/CameraShake.java
 ```
 
 Положите `assets/` в `src/main/resources/`, `java/` — в `src/main/java/`.
@@ -28,7 +28,7 @@ java/com/example/samurai/client/vfx/CameraShake.java
 1. Замените `modid` на свой mod id — **в двух местах**: имя папки `assets/<modid>/`
    и константа `SamuraiMod.MOD_ID`. Путей в Java менять не нужно, они собираются
    из этой константы.
-2. Замените пакет `com.example.samurai` на свой, если нужно.
+2. Замените пакет `com.kushtarbek.shogun` на свой, если нужно.
 3. `build.gradle`:
 
 ```gradle

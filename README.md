@@ -1,82 +1,121 @@
 # Corrupted Shogun
 
-A Forge 1.20.1 mod built around a boss fight with a three-block-tall corrupted
-samurai, plus a small spellbook magic system: mana, spell scrolls, a spell
-wheel and two heavy-hitting spells.
+A boss-fight mod for **Minecraft 1.20.1 (Forge)**. A three-block-tall
+samurai, consumed by purple corruption, waits for anyone foolish enough to
+summon him. Beat him and take his katana. The mod also adds a spellbook
+with two devastating spells.
 
 ![Minecraft](https://img.shields.io/badge/Minecraft-1.20.1-62B47A)
-![Forge](https://img.shields.io/badge/Forge-47.4.8-1F6FEB)
-![GeckoLib](https://img.shields.io/badge/GeckoLib-4.8.4-orange)
-![License](https://img.shields.io/badge/license-MIT-blue)
+![Forge](https://img.shields.io/badge/Forge-47.x-1F6FEB)
+![GeckoLib](https://img.shields.io/badge/GeckoLib-4.8.x-orange)
 
-## Features
+## The Corrupted Shogun
 
-### The boss — `samuraiboss:samurai_shogun`
+A fully animated boss with 600 HP, heavy armour and a boss bar.
 
-- 600 HP, heavy armour, boss bar, fully animated with GeckoLib.
-- Wields a nodachi one-handed: a fast diagonal slash and a slow overhead
-  slam that knocks targets into the air. Damage lands exactly on the frame
-  the blade connects.
-- **Dash phase** at 75%, 50% and 25% HP: winds up, charges 20 blocks through
-  everything in its path, then turns and guards while regenerating until hit.
-- **Skyfall** — leaps into the air and crashes down on its target, sending
-  out shockwaves you can jump over.
-- **Rage** at 30% HP — a roar, then faster and harder-hitting attacks.
-- Drops its katana on death.
+- **Nodachi combat.** He switches between a fast diagonal slash and a slow
+  overhead slam that throws you into the air. The hit lands on the exact
+  frame the blade connects, so you can read his swings and dodge them.
+- **Dash phase.** At 75%, 50% and 25% HP he winds up and charges 20 blocks
+  through everything in his way. Then he turns, raises his guard and
+  regenerates until you land a hit.
+- **Skyfall.** He leaps high into the air and crashes down on his target,
+  sending out shockwaves. Jump over them.
+- **Rage.** Below 30% HP he roars, and his attacks get faster and hit harder.
+- **Reward.** He always drops his katana.
 
-### The katana — `samuraiboss:samurai_blade`
+### How to summon him
 
-- Netherite-tier sword.
-- **Shadow Dash** — Shift + right-click: a 10-block dash that damages
-  everything along the way and grants Regeneration II for 30 seconds.
+Use the **Corrupted Shogun spawn egg** from the Spawn Eggs creative tab, or
+run this command (requires cheats or operator):
+
+```
+/summon samuraiboss:samurai_shogun ~ ~ ~5
+```
+
+He does not spawn naturally. You pick the arena, so give him room to
+move. He is a three-block-tall boss with a 20-block dash.
+
+## Blade of the Corrupted Shogun
+
+A Netherite-tier katana dropped by the boss.
+
+- **Shadow Dash** (Shift + right-click). You dash 10 blocks forward and
+  damage everything along the way, then get Regeneration II for 30 seconds.
   1-minute cooldown.
 
-### Magic
+## Magic
 
-- **Spell book** with 5 spell slots. Put it in the book slot of your
-  inventory (next to the armour, above the offhand) to cast hands-free, or
-  hold it in your hand.
-- **Spell scrolls** — cast once from the scroll, or right-click a scroll onto
-  a book to write the spell into it.
-- **Mana** bar and per-spell cooldowns on the HUD.
-- **Meteor** — rise into the air and call down a meteor that leaves a crater.
-  Once started, the cast cannot be interrupted.
-- **Black Hole** — opens a seven-second singularity where you look, pulling
-  in and damaging everything nearby except you.
+- **Spell Book.** Holds up to 5 spells. Put it in the new **book slot** in
+  your inventory (to the right of the armour, above the offhand) to cast
+  hands-free, or hold it in your hand.
+- **Spell Scrolls.** Cast a scroll once directly, or right-click it onto a
+  book to write the spell into the book permanently.
+- **Mana and cooldowns.** Your mana bar and spell cooldowns show on the HUD.
+
+### Spells
+
+| Spell | What it does |
+|---|---|
+| **Meteor** | You rise into the air and call down a meteor that blasts a crater where it lands. Once the cast starts, it cannot be interrupted. |
+| **Black Hole** | Opens a singularity where you look for seven seconds. It pulls in and damages everything nearby except you. |
+
+### Controls
 
 | Action | Default key |
 |---|---|
-| Spell wheel (hold, release on a spell) | `R` |
+| Spell wheel (hold, then release on a spell) | `R` |
 | Previous / next spell | `Z` / `X` |
 | Cast from the equipped book (hold) | `V` |
 
-All keys can be rebound in Options → Controls.
+You can rebind all keys in Options → Controls → Key Binds.
 
-Commands for testing: `/mana`, `/spell`, `/spellbook`.
+### Getting the spell book and scrolls
 
-## Installing
+The book and a scroll of each spell are in the **Shogun Magic** creative tab.
+Server operators can also hand them out with commands:
 
-1. Install **Forge 1.20.1** (47.x).
-2. Put **GeckoLib 4.4+ for Forge 1.20.1** and `samuraiboss-1.0.0.jar` into
-   the `mods` folder.
+- `/spell scroll <spell> [level]` gives a scroll
+- `/spellbook add <spell> [level]` writes a spell into the held book
+- `/mana` shows your mana; `/mana fill`, `/mana set` and `/mana add` change it
 
-Multiplayer works the same way: the server and every player need the same
-jar.
+These commands need operator rights (permission level 2).
 
-## Building from source
+### Server config
 
-Requires **JDK 17** (Gradle fetches it automatically if missing).
+`serverconfig/samuraiboss-server.toml` in the world folder:
 
-```bash
-git clone https://github.com/boyutov/Corrupted-Shogun.git
-cd Corrupted-Shogun
-./gradlew runClient          # run the game in a dev environment
-./gradlew build              # jar in build/libs/
-```
+- `meteor.destroyTerrain` controls whether the meteor digs a crater and starts
+  fires. Damage is dealt either way.
+- `blackHole.affectPlayers` controls whether black holes pull and hurt other players.
+  They never affect their caster.
 
-In-game: `/summon samuraiboss:samurai_shogun ~ ~ ~2` or use the spawn egg
-from the Spawn Eggs creative tab.
+## Requirements
+
+- **Minecraft 1.20.1**
+- **Forge 47.x** for 1.20.1
+- **[GeckoLib](https://modrinth.com/mod/geckolib) 4.8.x for Forge 1.20.1.**
+  This is a **required** dependency, and the game will not start without it.
+- Java 17. The official launcher already includes it.
+
+## Installation
+
+1. Install Forge for Minecraft 1.20.1.
+2. Put `samuraiboss-1.20.1-1.0.0.jar` and the GeckoLib jar into your `mods`
+   folder.
+3. Start the game with the Forge profile.
+
+**Multiplayer:** install the mod and GeckoLib on the server **and** on
+every player's client.
+
+## Modpacks
+
+You may include this mod in modpacks. See [LICENSE](LICENSE) for the terms.
+
+## Bugs and feedback
+
+Report bugs on the [issue tracker](https://github.com/boyutov/Corrupted-Shogun/issues).
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+All Rights Reserved © 2026 Kushtarbek. See [LICENSE](LICENSE) for details.
