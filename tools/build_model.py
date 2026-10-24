@@ -615,89 +615,94 @@ def paint_face(mat, d, wu, hu):
 # ---------------------------------------------------------------------------
 # Build faces, pack them, emit geometry + atlas
 # ---------------------------------------------------------------------------
-faces = []   # (cube_name, dir, canvas)
-for b in BONES:
-    for c in b["cubes"]:
-        name, origin, size, mat = c[0], c[1], c[2], c[3]
-        overrides = c[4] if len(c) > 4 else {}
-        for d in DIRS:
-            wu, hu = face_world_size(size, d)
-            faces.append((name, d, paint_face(overrides.get(d, mat), d, wu, hu)))
+def build():
+    faces = []   # (cube_name, dir, canvas)
+    for b in BONES:
+        for c in b["cubes"]:
+            name, origin, size, mat = c[0], c[1], c[2], c[3]
+            overrides = c[4] if len(c) > 4 else {}
+            for d in DIRS:
+                wu, hu = face_world_size(size, d)
+                faces.append((name, d, paint_face(overrides.get(d, mat), d, wu, hu)))
 
-# shelf pack, tallest first
-order = sorted(range(len(faces)), key=lambda i: (-faces[i][2].h, -faces[i][2].w))
-place = {}
-shelf_y = shelf_h = cur_x = 0
-for i in order:
-    cv = faces[i][2]
-    if cur_x + cv.w > TEX:
-        shelf_y += shelf_h
-        shelf_h = cur_x = 0
-    place[i] = (cur_x, shelf_y)
-    cur_x += cv.w
-    shelf_h = max(shelf_h, cv.h)
-used = shelf_y + shelf_h
+    # shelf pack, tallest first
+    order = sorted(range(len(faces)), key=lambda i: (-faces[i][2].h, -faces[i][2].w))
+    place = {}
+    shelf_y = shelf_h = cur_x = 0
+    for i in order:
+        cv = faces[i][2]
+        if cur_x + cv.w > TEX:
+            shelf_y += shelf_h
+            shelf_h = cur_x = 0
+        place[i] = (cur_x, shelf_y)
+        cur_x += cv.w
+        shelf_h = max(shelf_h, cv.h)
+    used = shelf_y + shelf_h
 
-area = sum(f[2].w * f[2].h for f in faces)
-print(f"Per-face UV: {len(faces)} faces, {area} texels used of {TEX*TEX} "
-      f"({100*area/(TEX*TEX):.0f}% fill), atlas rows used {used}/{TEX}")
-if used > TEX:
-    raise SystemExit(f"ERROR: atlas overflow — needs {used} rows, have {TEX}")
+    area = sum(f[2].w * f[2].h for f in faces)
+    print(f"Per-face UV: {len(faces)} faces, {area} texels used of {TEX*TEX} "
+          f"({100*area/(TEX*TEX):.0f}% fill), atlas rows used {used}/{TEX}")
+    if used > TEX:
+        raise SystemExit(f"ERROR: atlas overflow — needs {used} rows, have {TEX}")
 
-atlas = Image.new("RGBA", (TEX, TEX), (0, 0, 0, 0))
-glowatlas = Image.new("RGBA", (TEX, TEX), (0, 0, 0, 0))
-uv_of = {}
-for i, (cname, d, cv) in enumerate(faces):
-    x, y = place[i]
-    atlas.paste(cv.img, (x, y))
-    glowatlas.paste(cv.glow, (x, y))
-    uv_of[(cname, d)] = (x, y, cv.w, cv.h)
+    atlas = Image.new("RGBA", (TEX, TEX), (0, 0, 0, 0))
+    glowatlas = Image.new("RGBA", (TEX, TEX), (0, 0, 0, 0))
+    uv_of = {}
+    for i, (cname, d, cv) in enumerate(faces):
+        x, y = place[i]
+        atlas.paste(cv.img, (x, y))
+        glowatlas.paste(cv.glow, (x, y))
+        uv_of[(cname, d)] = (x, y, cv.w, cv.h)
 
-# geometry
-bones_json = []
-for b in BONES:
-    entry = {"name": b["name"]}
-    if b["parent"]:
-        entry["parent"] = b["parent"]
-    entry["pivot"] = b["pivot"]
-    if b.get("rotation"):
-        entry["rotation"] = b["rotation"]
-    cubes = []
-    for c in b["cubes"]:
-        name, origin, size = c[0], c[1], c[2]
-        uv = {}
-        for d in DIRS:
-            x, y, w, h = uv_of[(name, d)]
-            uv[d] = {"uv": [x, y], "uv_size": [w, h]}
-        cubes.append({"origin": origin, "size": size, "uv": uv})
-    if cubes:
-        entry["cubes"] = cubes
-    if b.get("locators"):
-        entry["locators"] = b["locators"]
-    bones_json.append(entry)
+    # geometry
+    bones_json = []
+    for b in BONES:
+        entry = {"name": b["name"]}
+        if b["parent"]:
+            entry["parent"] = b["parent"]
+        entry["pivot"] = b["pivot"]
+        if b.get("rotation"):
+            entry["rotation"] = b["rotation"]
+        cubes = []
+        for c in b["cubes"]:
+            name, origin, size = c[0], c[1], c[2]
+            uv = {}
+            for d in DIRS:
+                x, y, w, h = uv_of[(name, d)]
+                uv[d] = {"uv": [x, y], "uv_size": [w, h]}
+            cubes.append({"origin": origin, "size": size, "uv": uv})
+        if cubes:
+            entry["cubes"] = cubes
+        if b.get("locators"):
+            entry["locators"] = b["locators"]
+        bones_json.append(entry)
 
-geo = {
-    "format_version": "1.12.0",
-    "minecraft:geometry": [{
-        "description": {
-            "identifier": "geometry.samurai_shogun",
-            "texture_width": TEX,
-            "texture_height": TEX,
-            "visible_bounds_width": 6,
-            "visible_bounds_height": 7,
-            "visible_bounds_offset": [0, 3, 0],
-        },
-        "bones": bones_json,
-    }],
-}
+    geo = {
+        "format_version": "1.12.0",
+        "minecraft:geometry": [{
+            "description": {
+                "identifier": "geometry.samurai_shogun",
+                "texture_width": TEX,
+                "texture_height": TEX,
+                "visible_bounds_width": 6,
+                "visible_bounds_height": 7,
+                "visible_bounds_offset": [0, 3, 0],
+            },
+            "bones": bones_json,
+        }],
+    }
 
-os.makedirs(f"{OUT_DIR}/assets/{MODID}/geo", exist_ok=True)
-os.makedirs(f"{OUT_DIR}/assets/{MODID}/textures/entity", exist_ok=True)
-with open(f"{OUT_DIR}/assets/{MODID}/geo/samurai_shogun.geo.json", "w") as f:
-    json.dump(geo, f, indent=2)
+    os.makedirs(f"{OUT_DIR}/assets/{MODID}/geo", exist_ok=True)
+    os.makedirs(f"{OUT_DIR}/assets/{MODID}/textures/entity", exist_ok=True)
+    with open(f"{OUT_DIR}/assets/{MODID}/geo/samurai_shogun.geo.json", "w") as f:
+        json.dump(geo, f, indent=2)
 
-atlas.save(f"{OUT_DIR}/assets/{MODID}/textures/entity/samurai_shogun.png")
-glowatlas.save(f"{OUT_DIR}/assets/{MODID}/textures/entity/samurai_shogun_glowmask.png")
-atlas.resize((TEX * 3, TEX * 3), Image.NEAREST).save(f"{OUT_DIR}/texture_preview_x3.png")
+    atlas.save(f"{OUT_DIR}/assets/{MODID}/textures/entity/samurai_shogun.png")
+    glowatlas.save(f"{OUT_DIR}/assets/{MODID}/textures/entity/samurai_shogun_glowmask.png")
+    atlas.resize((TEX * 3, TEX * 3), Image.NEAREST).save(f"{OUT_DIR}/texture_preview_x3.png")
 
-print("Wrote geo.json (per-face UV), texture, glowmask.")
+    print("Wrote geo.json (per-face UV), texture, glowmask.")
+
+
+if __name__ == "__main__":
+    build()

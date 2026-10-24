@@ -4,11 +4,16 @@ Textured orthographic render of the per-face-UV model in T-pose.
 Each cube face projects to an axis-aligned rectangle in front/side/back views,
 so the face's texture region is resized onto it with painter ordering.
 """
-import json, math
+import json, math, argparse
+from pathlib import Path
 from PIL import Image
 
-GEO = "samurai_shogun/assets/modid/geo/samurai_shogun.geo.json"
-TEXP = "samurai_shogun/assets/modid/textures/entity/samurai_shogun.png"
+ROOT = Path(__file__).resolve().parents[1]
+parser = argparse.ArgumentParser()
+parser.add_argument('--output', type=Path, default=ROOT/'build/previews/textured_render.png')
+args = parser.parse_args()
+GEO = ROOT/'src/main/resources/assets/samuraiboss/geo/samurai_shogun.geo.json'
+TEXP = ROOT/'src/main/resources/assets/samuraiboss/textures/entity/samurai_shogun.png'
 
 geo = json.load(open(GEO))
 g = geo["minecraft:geometry"][0]
@@ -79,7 +84,8 @@ for vname, (face, haxis, daxis, fliph) in VIEWS.items():
 
     for depth, h0, h1, y0, y1, fu in items:
         ux, uy = fu["uv"]; uw, uh = fu["uv_size"]
-        src = tex.crop((int(ux), int(uy), int(ux + uw), int(uy + uh)))
+        sx, sy = tex.width/g['description']['texture_width'], tex.height/g['description']['texture_height']
+        src = tex.crop((round(ux*sx), round(uy*sy), round((ux+uw)*sx), round((uy+uh)*sy)))
         pw = max(1, int(round((h1 - h0) * S)))
         ph = max(1, int(round((y1 - y0) * S)))
         src = src.resize((pw, ph), Image.NEAREST)
@@ -104,5 +110,6 @@ for vname, p in panels:
     d.text((x + 6, 8), vname, fill=(70, 70, 70))
     x += p.width + gap
 
-out.convert("RGB").save("samurai_shogun/textured_render.png")
+args.output.parent.mkdir(parents=True, exist_ok=True)
+out.convert("RGB").save(args.output)
 print("wrote textured_render.png", out.size)
