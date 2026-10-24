@@ -1,5 +1,6 @@
 package com.example.samurai.magic.casting;
 
+import com.example.samurai.magic.item.SpellScrollItem;
 import com.example.samurai.magic.spell.Spell;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -8,7 +9,12 @@ public enum CastSource {
     NONE,
     COMMAND,
     SPELLBOOK,
-    SCROLL;
+    SCROLL {
+        @Override
+        public void onCastSucceeded(ServerPlayer player, Spell spell) {
+            SpellScrollItem.consumeFromHands(player, spell);
+        }
+    };
 
     public void onCastSucceeded(ServerPlayer player, Spell spell) {
     }

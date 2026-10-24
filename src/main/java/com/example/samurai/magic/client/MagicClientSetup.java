@@ -1,10 +1,13 @@
 package com.example.samurai.magic.client;
 
 import com.example.samurai.SamuraiMod;
+import net.minecraft.client.Minecraft;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.client.event.RegisterGuiOverlaysEvent;
+import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
 import net.minecraftforge.client.gui.overlay.VanillaGuiOverlay;
+import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
@@ -18,6 +21,11 @@ public final class MagicClientSetup {
             event.registerAbove(VanillaGuiOverlay.HOTBAR.id(), "mana_bar", ManaHudOverlay.INSTANCE);
         }
 
+        @SubscribeEvent
+        public static void registerKeys(RegisterKeyMappingsEvent event) {
+            event.register(MagicKeys.OPEN_SPELL_MENU);
+        }
+
         private ModBus() {
         }
     }
@@ -28,6 +36,13 @@ public final class MagicClientSetup {
         @SubscribeEvent
         public static void loggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
             ClientMagicData.reset();
+        }
+
+        @SubscribeEvent
+        public static void clientTick(TickEvent.ClientTickEvent event) {
+            if (event.phase == TickEvent.Phase.END) {
+                MagicKeys.handleInput(Minecraft.getInstance());
+            }
         }
 
         private ForgeBus() {

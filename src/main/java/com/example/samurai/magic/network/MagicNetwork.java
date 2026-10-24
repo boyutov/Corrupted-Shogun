@@ -24,6 +24,11 @@ public final class MagicNetwork {
                 .decoder(SyncManaPacket::decode)
                 .consumerMainThread(SyncManaPacket::handle)
                 .add();
+        CHANNEL.messageBuilder(SelectSpellPacket.class, nextId++, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(SelectSpellPacket::encode)
+                .decoder(SelectSpellPacket::decode)
+                .consumerMainThread(SelectSpellPacket::handle)
+                .add();
     }
 
     public static void sendToPlayer(ServerPlayer player, Object packet) {
