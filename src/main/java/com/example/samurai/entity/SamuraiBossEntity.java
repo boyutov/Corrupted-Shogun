@@ -139,12 +139,12 @@ public class SamuraiBossEntity extends Monster implements GeoEntity {
     // ---- attributes -----------------------------------------------------------
     public static AttributeSupplier.Builder createAttributes() {
         return Monster.createMonsterAttributes()
-                .add(Attributes.MAX_HEALTH, 300.0D)
-                .add(Attributes.ATTACK_DAMAGE, 10.0D)
-                .add(Attributes.MOVEMENT_SPEED, 0.25D)
+                .add(Attributes.MAX_HEALTH, 600.0D)
+                .add(Attributes.ATTACK_DAMAGE, 16.0D)
+                .add(Attributes.MOVEMENT_SPEED, 0.3D)
                 .add(Attributes.FOLLOW_RANGE, 40.0D)
-                .add(Attributes.ARMOR, 12.0D)
-                .add(Attributes.ARMOR_TOUGHNESS, 6.0D)
+                .add(Attributes.ARMOR, 16.0D)
+                .add(Attributes.ARMOR_TOUGHNESS, 10.0D)
                 .add(Attributes.ATTACK_KNOCKBACK, 2.0D)
                 .add(Attributes.KNOCKBACK_RESISTANCE, 0.9D);
     }
@@ -600,7 +600,7 @@ public class SamuraiBossEntity extends Monster implements GeoEntity {
         protected void checkAndPerformAttack(LivingEntity target, double distToTargetSqr) {
             double reach = this.getAttackReachSqr(target);
             if (distToTargetSqr <= reach && this.cooldown <= 0 && !this.boss.isBusy()) {
-                this.cooldown = 35 + this.boss.getRandom().nextInt(20);
+                this.cooldown = 26 + this.boss.getRandom().nextInt(14);
                 this.resetAttackCooldown();
                 this.boss.doHurtTarget(target);
             }
