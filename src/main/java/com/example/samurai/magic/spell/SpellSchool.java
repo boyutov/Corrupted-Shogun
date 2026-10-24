@@ -13,7 +13,9 @@ public enum SpellSchool {
     NATURE(0x6BD46B),
     SHADOW(0x8A5CC7),
     HOLY(0xFFE9A8),
-    BLOOD(0xC4243A);
+    BLOOD(0xC4243A),
+    /** build_model.py purple: the black hole's school. */
+    VOID(0x8E4CD8);
 
     private final int color;
 

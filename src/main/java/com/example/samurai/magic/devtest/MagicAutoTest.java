@@ -1,6 +1,13 @@
 package com.example.samurai.magic.devtest;
 
 import com.example.samurai.SamuraiMod;
+import com.example.samurai.entity.SamuraiBossEntity;
+import com.example.samurai.magic.entity.BlackHoleEntity;
+import com.example.samurai.registry.ModEntities;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.entity.vehicle.Boat;
+import net.minecraft.world.phys.Vec3;
 import com.example.samurai.magic.casting.SpellCasting;
 import com.example.samurai.magic.client.ClientMagicData;
 import com.example.samurai.magic.client.ClientSpellInfo;
@@ -77,10 +84,12 @@ import java.util.function.Supplier;
 public final class MagicAutoTest {
 
     private static final Logger LOGGER = LogUtils.getLogger();
-    /** "all" (default) or "meteor" for the meteor part only, which skips most of the run time. */
+    /** "all" (default), or "meteor" / "blackhole" for just that spell's part. */
     private static final String MODE = System.getProperty("samuraiboss.autotest", "");
     private static final boolean ENABLED = !MODE.isEmpty() && !MODE.equals("false");
-    private static final boolean FULL = !MODE.equals("meteor");
+    private static final boolean FULL = !MODE.equals("meteor") && !MODE.equals("blackhole");
+    private static final boolean RUN_METEOR = FULL || MODE.equals("meteor");
+    private static final boolean RUN_BLACK_HOLE = FULL || MODE.equals("blackhole");
     private static final String WORLD = "samuraiboss-autotest-" + System.currentTimeMillis();
 
     private final Minecraft mc = Minecraft.getInstance();
@@ -146,133 +155,11 @@ public final class MagicAutoTest {
             frameworkSteps();
         }
 
-        // Meteor
-        act("meteor setup: survival, scroll lvl 4, chest, golem, tamed wolf", this::setupMeteor);
-        waitTicks(10);
-        act("hold RMB with meteor scroll", () -> {
-            watchCasterDamage = true;
-            riseStartY = serverPlayer().getY();
-            riseStartX = serverPlayer().getX();
-            riseStartZ = serverPlayer().getZ();
-            riseMaxY = riseStartY;
-            holdUse(true);
-        });
-        untilTracking("M meteor cast completes", () -> !serverData(MagicData::isCasting), 80);
-        screenshot("06_meteor_top");
-        act("release RMB", () -> holdUse(false));
-        check("M arc: ≈32 up and ≈18 away from the impact", () -> {
-            apexDrift = onServer(() -> Math.hypot(serverPlayer().getX() - riseStartX, serverPlayer().getZ() - riseStartZ));
-            record("   rose " + String.format("%.2f", riseMaxY - riseStartY) + ", drifted " + String.format("%.2f", apexDrift));
-            return riseMaxY - riseStartY > 29 && riseMaxY - riseStartY < 34 && apexDrift > 15 && apexDrift < 20;
-        });
-        check("M scroll consumed", () -> onServer(() -> SpellScrollItem.getSpell(serverPlayer().getMainHandItem()) == null));
-        check("M meteor in flight, not straight down", () -> onServer(() -> {
-            List<MeteorEntity> meteors = serverPlayer().serverLevel().getEntitiesOfClass(MeteorEntity.class,
-                    new AABB(serverPlayer().blockPosition()).inflate(80));
-            meteors.forEach(m -> record("   meteor at " + m.position() + " v " + m.getDeltaMovement()));
-            return !meteors.isEmpty() && Math.abs(meteors.get(0).getDeltaMovement().horizontalDistance()) > 0.3;
-        }));
-        waitTicks(15);
-        screenshot("07_meteor_flight");
-        untilTracking("M caster landed", () -> serverPlayerBool(p -> p.onGround() && p.getY() < riseStartY + 2), 200);
-        check("M fall immunity used up by that landing", () -> !serverData(MagicData::isFallImmune));
-        check("M landed beyond the crater edge (radius 9)", () -> {
-            double d = onServer(() -> Math.hypot(serverPlayer().getX() - 0.5, serverPlayer().getZ() - 0.5));
-            record("   landed " + String.format("%.2f", d) + " blocks from the impact");
-            return d > 10;
-        });
-        waitTicks(20);
-        screenshot("08_crater");
-        check("M caster took no damage of any kind", () -> {
-            record("   caster damage events: " + casterDamage);
-            return casterDamage.isEmpty();
-        });
-        check("M golem (10 blocks) damaged ~31", () -> onServer(() -> {
-            List<IronGolem> golems = serverPlayer().serverLevel().getEntitiesOfClass(IronGolem.class,
-                    new AABB(BlockPos.ZERO.above(ARENA_TOP)).inflate(30));
-            golems.forEach(g -> record("   golem health " + g.getHealth()));
-            return !golems.isEmpty() && golems.get(0).getHealth() < 75 && golems.get(0).getHealth() > 60;
-        }));
-        check("M tamed wolf untouched", () -> onServer(() -> {
-            List<Wolf> wolves = serverPlayer().serverLevel().getEntitiesOfClass(Wolf.class,
-                    new AABB(BlockPos.ZERO.above(ARENA_TOP)).inflate(30));
-            wolves.forEach(w -> record("   wolf health " + w.getHealth() + "/" + w.getMaxHealth()));
-            return !wolves.isEmpty() && wolves.get(0).getHealth() == wolves.get(0).getMaxHealth();
-        }));
-        check("M chest contents spilled (5 netherite ingots on the ground)", () -> onServer(() -> {
-            int count = serverPlayer().serverLevel().getEntitiesOfClass(ItemEntity.class,
-                            new AABB(BlockPos.ZERO.above(ARENA_TOP)).inflate(30)).stream()
-                    .filter(e -> e.getItem().is(Items.NETHERITE_INGOT)).mapToInt(e -> e.getItem().getCount()).sum();
-            record("   netherite on ground " + count);
-            return count == 5;
-        }));
-        check("M crater dug", () -> onServer(() -> serverPlayer().serverLevel()
-                .getBlockState(new BlockPos(3, ARENA_TOP - 3, 3)).isAir()));
-        act("stop watching damage", () -> watchCasterDamage = false);
-
-        // Meteor refusals
-        act("ceiling over caster", () -> onServer(() -> {
-            ServerLevel level = serverPlayer().serverLevel();
-            serverData(d -> {
-                d.getCooldowns().clear();
-                return null;
-            });
-            serverPlayer().setHealth(20);
-            serverPlayer().teleportTo(60.5, ARENA_TOP + 1, 0.5);
-            level.setBlock(new BlockPos(60, ARENA_TOP + 12, 0), Blocks.STONE.defaultBlockState(), Block.UPDATE_ALL);
-            serverPlayer().getInventory().setItem(serverPlayer().getInventory().selected,
-                    SpellScrollItem.create(MagicSpells.METEOR.get(), 1));
-            return null;
-        }));
-        waitTicks(10);
-        check("M ceiling 11 blocks up: refused (no_room)", () -> onServer(() -> {
-            String msg = tryCastFromScroll().getMessage().getString();
-            record("   message: " + msg);
-            return msg.contains("взлёта") || msg.toLowerCase().contains("take off");
-        }));
-        act("one-block platform high in the air", () -> onServer(() -> {
-            ServerLevel level = serverPlayer().serverLevel();
-            level.setBlock(new BlockPos(120, 250, 0), Blocks.STONE.defaultBlockState(), Block.UPDATE_ALL);
-            serverPlayer().teleportTo(120.5, 251, 0.5);
-            return null;
-        }));
-        waitTicks(10);
-        check("M one-block platform: refused (no_ground)", () -> onServer(() -> {
-            String msg = tryCastFromScroll().getMessage().getString();
-            record("   message: " + msg);
-            return msg.contains("земли") || msg.toLowerCase().contains("ground");
-        }));
-
-        // Worst case crater timing: radius 10 entirely inside stone
-        act("worst case: radius-10 crater inside solid stone", () -> onServer(() -> {
-            ServerPlayer p = serverPlayer();
-            ServerLevel level = p.serverLevel();
-            p.setGameMode(GameType.CREATIVE);
-            p.getAbilities().flying = true;
-            p.onUpdateAbilities();
-            p.teleportTo(-15.5, ARENA_TOP + 10, 100.5);
-            BlockPos c = new BlockPos(0, ARENA_TOP - 8, 60);
-            fill(level, c.offset(-11, -8, -11), c.offset(11, 5, 11), Blocks.STONE);
-            MeteorImpact.scheduleCrater(level, c, 10, null);
-            return null;
-        }));
-        waitTicks(10);
-        // Timing series: eight level-4 craters, each fully inside fresh stone, 2 s apart.
-        for (int i = 0; FULL && i < 8; i++) {
-            int n = i;
-            act("bench crater " + n, () -> onServer(() -> {
-                ServerLevel level = serverPlayer().serverLevel();
-                BlockPos c = new BlockPos(-60 + (n % 4) * 30, ARENA_TOP - 8, 100 + (n / 4) * 30);
-                fill(level, c.offset(-10, -7, -10), c.offset(10, 4, 10), Blocks.STONE);
-                return null;
-            }));
-            waitTicks(20);
-            act("bench carve " + n, () -> onServer(() -> {
-                MeteorImpact.scheduleCrater(serverPlayer().serverLevel(),
-                        new BlockPos(-60 + (n % 4) * 30, ARENA_TOP - 8, 100 + (n / 4) * 30), 9, null);
-                return null;
-            }));
-            waitTicks(20);
+        if (RUN_METEOR) {
+            meteorSteps();
+        }
+        if (RUN_BLACK_HOLE) {
+            blackHoleSteps();
         }
 
         act("finish", this::finish);
@@ -535,6 +422,327 @@ public final class MagicAutoTest {
         check("10 death: cooldown kept", () -> serverCooldown(MagicSpells.TEST_STUB_LONG.get()) > 2000);
     }
 
+    /** Meteor cast, landing, damage, crater, refusals, crater timing. */
+    private void meteorSteps() {
+        // Meteor
+        act("meteor setup: survival, scroll lvl 4, chest, golem, tamed wolf", this::setupMeteor);
+        waitTicks(10);
+        act("hold RMB with meteor scroll", () -> {
+            watchCasterDamage = true;
+            riseStartY = serverPlayer().getY();
+            riseStartX = serverPlayer().getX();
+            riseStartZ = serverPlayer().getZ();
+            riseMaxY = riseStartY;
+            holdUse(true);
+        });
+        untilTracking("M meteor cast completes", () -> !serverData(MagicData::isCasting), 80);
+        screenshot("06_meteor_top");
+        act("release RMB", () -> holdUse(false));
+        check("M arc: ≈32 up and ≈18 away from the impact", () -> {
+            apexDrift = onServer(() -> Math.hypot(serverPlayer().getX() - riseStartX, serverPlayer().getZ() - riseStartZ));
+            record("   rose " + String.format("%.2f", riseMaxY - riseStartY) + ", drifted " + String.format("%.2f", apexDrift));
+            return riseMaxY - riseStartY > 29 && riseMaxY - riseStartY < 34 && apexDrift > 15 && apexDrift < 20;
+        });
+        check("M scroll consumed", () -> onServer(() -> SpellScrollItem.getSpell(serverPlayer().getMainHandItem()) == null));
+        check("M meteor in flight, not straight down", () -> onServer(() -> {
+            List<MeteorEntity> meteors = serverPlayer().serverLevel().getEntitiesOfClass(MeteorEntity.class,
+                    new AABB(serverPlayer().blockPosition()).inflate(80));
+            meteors.forEach(m -> record("   meteor at " + m.position() + " v " + m.getDeltaMovement()));
+            return !meteors.isEmpty() && Math.abs(meteors.get(0).getDeltaMovement().horizontalDistance()) > 0.3;
+        }));
+        waitTicks(15);
+        screenshot("07_meteor_flight");
+        untilTracking("M caster landed", () -> serverPlayerBool(p -> p.onGround() && p.getY() < riseStartY + 2), 200);
+        check("M fall immunity used up by that landing", () -> !serverData(MagicData::isFallImmune));
+        check("M landed beyond the crater edge (radius 9)", () -> {
+            double d = onServer(() -> Math.hypot(serverPlayer().getX() - 0.5, serverPlayer().getZ() - 0.5));
+            record("   landed " + String.format("%.2f", d) + " blocks from the impact");
+            return d > 10;
+        });
+        waitTicks(20);
+        screenshot("08_crater");
+        check("M caster took no damage of any kind", () -> {
+            record("   caster damage events: " + casterDamage);
+            return casterDamage.isEmpty();
+        });
+        check("M golem (10 blocks) damaged ~31", () -> onServer(() -> {
+            List<IronGolem> golems = serverPlayer().serverLevel().getEntitiesOfClass(IronGolem.class,
+                    new AABB(BlockPos.ZERO.above(ARENA_TOP)).inflate(30));
+            golems.forEach(g -> record("   golem health " + g.getHealth()));
+            return !golems.isEmpty() && golems.get(0).getHealth() < 75 && golems.get(0).getHealth() > 60;
+        }));
+        check("M tamed wolf untouched", () -> onServer(() -> {
+            List<Wolf> wolves = serverPlayer().serverLevel().getEntitiesOfClass(Wolf.class,
+                    new AABB(BlockPos.ZERO.above(ARENA_TOP)).inflate(30));
+            wolves.forEach(w -> record("   wolf health " + w.getHealth() + "/" + w.getMaxHealth()));
+            return !wolves.isEmpty() && wolves.get(0).getHealth() == wolves.get(0).getMaxHealth();
+        }));
+        check("M chest contents spilled (5 netherite ingots on the ground)", () -> onServer(() -> {
+            int count = serverPlayer().serverLevel().getEntitiesOfClass(ItemEntity.class,
+                            new AABB(BlockPos.ZERO.above(ARENA_TOP)).inflate(30)).stream()
+                    .filter(e -> e.getItem().is(Items.NETHERITE_INGOT)).mapToInt(e -> e.getItem().getCount()).sum();
+            record("   netherite on ground " + count);
+            return count == 5;
+        }));
+        check("M crater dug", () -> onServer(() -> serverPlayer().serverLevel()
+                .getBlockState(new BlockPos(3, ARENA_TOP - 3, 3)).isAir()));
+        act("stop watching damage", () -> watchCasterDamage = false);
+
+        // Meteor refusals
+        act("ceiling over caster", () -> onServer(() -> {
+            ServerLevel level = serverPlayer().serverLevel();
+            serverData(d -> {
+                d.getCooldowns().clear();
+                return null;
+            });
+            serverPlayer().setHealth(20);
+            serverPlayer().teleportTo(60.5, ARENA_TOP + 1, 0.5);
+            level.setBlock(new BlockPos(60, ARENA_TOP + 12, 0), Blocks.STONE.defaultBlockState(), Block.UPDATE_ALL);
+            serverPlayer().getInventory().setItem(serverPlayer().getInventory().selected,
+                    SpellScrollItem.create(MagicSpells.METEOR.get(), 1));
+            return null;
+        }));
+        waitTicks(10);
+        check("M ceiling 11 blocks up: refused (no_room)", () -> onServer(() -> {
+            String msg = tryCastFromScroll().getMessage().getString();
+            record("   message: " + msg);
+            return msg.contains("взлёта") || msg.toLowerCase().contains("take off");
+        }));
+        act("one-block platform high in the air", () -> onServer(() -> {
+            ServerLevel level = serverPlayer().serverLevel();
+            level.setBlock(new BlockPos(120, 250, 0), Blocks.STONE.defaultBlockState(), Block.UPDATE_ALL);
+            serverPlayer().teleportTo(120.5, 251, 0.5);
+            return null;
+        }));
+        waitTicks(10);
+        check("M one-block platform: refused (no_ground)", () -> onServer(() -> {
+            String msg = tryCastFromScroll().getMessage().getString();
+            record("   message: " + msg);
+            return msg.contains("земли") || msg.toLowerCase().contains("ground");
+        }));
+
+        // Worst case crater timing: radius 10 entirely inside stone
+        act("worst case: radius-10 crater inside solid stone", () -> onServer(() -> {
+            ServerPlayer p = serverPlayer();
+            ServerLevel level = p.serverLevel();
+            p.setGameMode(GameType.CREATIVE);
+            p.getAbilities().flying = true;
+            p.onUpdateAbilities();
+            p.teleportTo(-15.5, ARENA_TOP + 10, 100.5);
+            BlockPos c = new BlockPos(0, ARENA_TOP - 8, 60);
+            fill(level, c.offset(-11, -8, -11), c.offset(11, 5, 11), Blocks.STONE);
+            MeteorImpact.scheduleCrater(level, c, 10, null);
+            return null;
+        }));
+        waitTicks(10);
+        // Timing series: eight level-4 craters, each fully inside fresh stone, 2 s apart.
+        for (int i = 0; FULL && i < 8; i++) {
+            int n = i;
+            act("bench crater " + n, () -> onServer(() -> {
+                ServerLevel level = serverPlayer().serverLevel();
+                BlockPos c = new BlockPos(-60 + (n % 4) * 30, ARENA_TOP - 8, 100 + (n / 4) * 30);
+                fill(level, c.offset(-10, -7, -10), c.offset(10, 4, 10), Blocks.STONE);
+                return null;
+            }));
+            waitTicks(20);
+            act("bench carve " + n, () -> onServer(() -> {
+                MeteorImpact.scheduleCrater(serverPlayer().serverLevel(),
+                        new BlockPos(-60 + (n % 4) * 30, ARENA_TOP - 8, 100 + (n / 4) * 30), 9, null);
+                return null;
+            }));
+            waitTicks(20);
+        }
+    }
+
+    // ---- black hole scenarios ----
+
+    private BlackHoleEntity hole;
+    private Zombie pulled;
+    private Zombie walled;
+    private Zombie centred;
+    private Zombie dummy;
+    private SamuraiBossEntity boss;
+    private ItemEntity loot;
+    private Boat boat;
+    /** {hole tick, damage in tenths} for every hit on the pulled zombie. */
+    private final List<int[]> pulledHits = new ArrayList<>();
+    private double pulledStartDistance;
+    private double pulledMinDistance = Double.MAX_VALUE;
+    private double centredMaxDistance;
+    private double centredMaxStep;
+    private Vec3 centredLast;
+    private Vec3 lootStart;
+    private Vec3 boatStart;
+    private float walledStartHealth;
+    private boolean walledEverInWall;
+    private int dashStartTick = -1;
+    private Vec3 dashStart;
+    private double dashTravelled = -1;
+    private int dashTicks = -1;
+    /** Server-thread sampling of the scenario: client ticks can fall behind the server's. */
+    private volatile boolean sampling;
+
+    private static final Vec3 HOLE = new Vec3(0.5, MagicAutoTest.ARENA_TOP + 3.5, 0.5);
+
+    /** The spec's four cases (plain mobs, Shogun mid-dash, mob behind a wall, mob at the centre) plus exclusions. */
+    private void blackHoleSteps() {
+        act("black hole setup: night, wall, zombies, Shogun, loot, boat", () -> onServer(() -> {
+            ServerPlayer p = serverPlayer();
+            ServerLevel level = p.serverLevel();
+            level.setDayTime(18000); // zombies don't burn
+            p.setGameMode(GameType.CREATIVE); // mobs ignore a creative player, so the Shogun keeps its target
+            p.teleportTo(0.5, ARENA_TOP + 1, -16.5);
+            // A closed stone booth around the walled zombie (x -10.5): no line of sight from any side.
+            fill(level, new BlockPos(-12, ARENA_TOP + 1, -1), new BlockPos(-9, ARENA_TOP + 4, 2), Blocks.STONE);
+            fill(level, new BlockPos(-11, ARENA_TOP + 1, 0), new BlockPos(-10, ARENA_TOP + 3, 1), Blocks.AIR);
+
+            hole = new BlackHoleEntity(level, p);
+            hole.setPos(HOLE);
+            level.addFreshEntity(hole);
+
+            pulled = spawn(level, EntityType.ZOMBIE, 12.5, ARENA_TOP + 1, 0.5);
+            walled = spawn(level, EntityType.ZOMBIE, -10.0, ARENA_TOP + 1, 1.0);
+            centred = spawn(level, EntityType.ZOMBIE, HOLE.x + 1, HOLE.y - 1, HOLE.z);
+            dummy = spawn(level, EntityType.ZOMBIE, 15.5, ARENA_TOP + 1, 15.5);
+            dummy.setNoAi(true);
+            boss = spawn(level, ModEntities.SAMURAI_SHOGUN.get(), -15.5, ARENA_TOP + 1, 15.5);
+
+            loot = new ItemEntity(level, 0.5, ARENA_TOP + 1, 6.5, new ItemStack(Items.DIAMOND));
+            loot.setPickUpDelay(32767);
+            loot.setDeltaMovement(Vec3.ZERO); // vanilla gives dropped items a random shove
+            level.addFreshEntity(loot);
+            boat = new Boat(level, 0.5, ARENA_TOP + 1, -6.5);
+            level.addFreshEntity(boat);
+
+            pulledStartDistance = pulled.getBoundingBox().getCenter().distanceTo(HOLE);
+            walledStartHealth = walled.getHealth();
+            lootStart = loot.position();
+            boatStart = boat.position();
+            centredLast = centred.position();
+            // Shogun at 74%: winds up and dashes along z = 15.5 towards the dummy, 15 blocks from the hole.
+            boss.setTarget(dummy);
+            boss.setHealth(boss.getMaxHealth() * 0.74f);
+            return null;
+        }));
+        act("start sampling on server ticks", () -> sampling = true);
+        until("black hole ran its 7 s", () -> onServer(() -> !hole.isAlive()), BlackHoleEntity.DURATION + 200);
+        act("stop sampling", () -> sampling = false);
+        check("BH plain zombie pulled from 12 blocks to the centre", () -> {
+            record(String.format("   zombie distance %.1f -> min %.2f", pulledStartDistance, pulledMinDistance));
+            return pulledMinDistance < 3.0;
+        });
+        check("BH 2 magic damage once per second, not in fractions", () -> {
+            boolean steady = pulledHits.size() >= 6;
+            for (int i = 0; i < pulledHits.size(); i++) {
+                int[] hit = pulledHits.get(i);
+                steady &= hit[1] == 20; // tenths of a point: exactly 2.0
+                if (i > 0) {
+                    steady &= hit[0] - pulledHits.get(i - 1)[0] == 20;
+                }
+            }
+            return steady;
+        });
+        check("BH zombie behind a wall: not pulled into it, not hurt", () -> {
+            record(String.format("   walled health %.1f -> %.1f, ever in wall %s", walledStartHealth, walled.getHealth(), walledEverInWall));
+            return !walledEverInWall && walled.getHealth() == walledStartHealth;
+        });
+        check("BH zombie at the centre held still, no jitter", () -> {
+            record(String.format("   centred max distance %.2f, max step %.3f", centredMaxDistance, centredMaxStep));
+            return centredMaxDistance < 2.6 && centredMaxStep < 0.3;
+        });
+        check("BH Shogun's dash still covers its 20 blocks (KB resistance 0.9)", () -> {
+            record(String.format("   dash travelled %.2f in %d server ticks (limit %d)", dashTravelled, dashTicks, 36));
+            return dashTravelled >= 19.5 && dashTicks > 0 && dashTicks < 36;
+        });
+        check("BH items and boats untouched", () -> {
+            double lootMoved = onServer(() -> loot.position().distanceTo(lootStart));
+            double boatMoved = onServer(() -> boat.position().distanceTo(boatStart));
+            record(String.format("   loot moved %.2f, boat moved %.2f", lootMoved, boatMoved));
+            return lootMoved < 0.5 && boatMoved < 0.5;
+        });
+
+        // Casting it: the caster is never pulled or hurt.
+        act("survival caster 10 blocks from where they aim", () -> onServer(() -> {
+            ServerPlayer p = serverPlayer();
+            ServerLevel level = p.serverLevel();
+            for (Entity e : level.getEntitiesOfClass(Zombie.class, new AABB(BlockPos.ZERO.above(ARENA_TOP)).inflate(40))) {
+                e.discard();
+            }
+            boss.discard();
+            p.setGameMode(GameType.SURVIVAL);
+            p.setHealth(20);
+            p.teleportTo(0.5, ARENA_TOP + 1, -9.5);
+            p.getInventory().setItem(p.getInventory().selected, SpellScrollItem.create(MagicSpells.BLACK_HOLE.get(), 1));
+            serverData(d -> {
+                d.getCooldowns().clear();
+                return null;
+            });
+            return null;
+        }));
+        act("look at the ground ahead", () -> {
+            mc.player.setYRot(0);
+            mc.player.setXRot(10);
+        });
+        waitTicks(10);
+        act("hold RMB with the black hole scroll", () -> {
+            casterDamage.clear();
+            watchCasterDamage = true;
+            riseStartX = serverPlayer().getX();
+            riseStartZ = serverPlayer().getZ();
+            holdUse(true);
+        });
+        until("BH cast spawns a black hole", () -> onServer(() -> !serverPlayer().serverLevel()
+                .getEntitiesOfClass(BlackHoleEntity.class, new AABB(BlockPos.ZERO.above(ARENA_TOP)).inflate(60)).isEmpty()), 60);
+        act("release RMB", () -> holdUse(false));
+        check("BH scroll consumed", () -> onServer(() -> SpellScrollItem.getSpell(serverPlayer().getMainHandItem()) == null));
+        waitTicks(25);
+        screenshot("09_black_hole");
+        waitTicks(60);
+        check("BH caster neither pulled nor hurt", () -> {
+            double moved = onServer(() -> Math.hypot(serverPlayer().getX() - riseStartX, serverPlayer().getZ() - riseStartZ));
+            record(String.format("   caster moved %.2f, damage %s", moved, casterDamage));
+            return moved < 0.5 && casterDamage.isEmpty();
+        });
+        act("stop watching damage", () -> watchCasterDamage = false);
+    }
+
+    @SubscribeEvent
+    public void serverTick(TickEvent.ServerTickEvent event) {
+        if (event.phase == TickEvent.Phase.END && sampling && hole != null) {
+            sampleBlackHole();
+        }
+    }
+
+    /** Server thread, once a tick while the scenario runs. */
+    private void sampleBlackHole() {
+        if (pulled.isAlive()) {
+            pulledMinDistance = Math.min(pulledMinDistance, pulled.getBoundingBox().getCenter().distanceTo(HOLE));
+        }
+        walledEverInWall |= walled.isInWall();
+        if (centred.isAlive() && hole.isAlive()) {
+            centredMaxDistance = Math.max(centredMaxDistance, centred.getBoundingBox().getCenter().distanceTo(HOLE));
+            centredMaxStep = Math.max(centredMaxStep, centred.position().distanceTo(centredLast));
+            centredLast = centred.position();
+        }
+        // Server ticks (the boss's own counter): client ticks can fall behind under load.
+        if (dashStartTick < 0 && boss.getPhase() == SamuraiBossEntity.PHASE_DASH) {
+            dashStartTick = boss.tickCount;
+            dashStart = boss.position();
+        } else if (dashStartTick >= 0 && dashTicks < 0 && boss.getPhase() != SamuraiBossEntity.PHASE_DASH) {
+            dashTicks = boss.tickCount - dashStartTick;
+            dashTravelled = boss.position().subtract(dashStart).horizontalDistance();
+        }
+    }
+
+    private static <T extends net.minecraft.world.entity.Mob> T spawn(ServerLevel level, EntityType<T> type,
+                                                                      double x, double y, double z) {
+        T mob = type.create(level);
+        mob.moveTo(x, y, z, 0, 0);
+        mob.setPersistenceRequired();
+        level.addFreshEntity(mob);
+        return mob;
+    }
+
     // ------------------------------------------------------------------ helpers
 
     private static final int ARENA_TOP = 150;
@@ -718,6 +926,13 @@ public final class MagicAutoTest {
     public void casterDamaged(LivingDamageEvent event) {
         if (watchCasterDamage && event.getEntity() instanceof ServerPlayer) {
             casterDamage.add(event.getSource().getMsgId() + " " + event.getAmount());
+        }
+        if (pulled != null && event.getEntity() == pulled) {
+            record(String.format("   zombie hurt at hole tick %d: %s %.1f", hole.tickCount,
+                    event.getSource().getMsgId(), event.getAmount()));
+            if ("indirectMagic".equals(event.getSource().getMsgId())) {
+                pulledHits.add(new int[]{hole.tickCount, Math.round(event.getAmount() * 10)});
+            }
         }
     }
 

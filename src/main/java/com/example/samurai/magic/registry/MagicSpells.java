@@ -1,6 +1,7 @@
 package com.example.samurai.magic.registry;
 
 import com.example.samurai.SamuraiMod;
+import com.example.samurai.magic.spell.BlackHoleSpell;
 import com.example.samurai.magic.spell.CastType;
 import com.example.samurai.magic.spell.EmptySpell;
 import com.example.samurai.magic.spell.MeteorSpell;
@@ -59,6 +60,8 @@ public final class MagicSpells {
                     .cooldown(80)));
 
     public static final RegistryObject<Spell> METEOR = SPELLS.register("meteor", MeteorSpell::new);
+
+    public static final RegistryObject<Spell> BLACK_HOLE = SPELLS.register("black_hole", BlackHoleSpell::new);
 
     public static IForgeRegistry<Spell> registry() {
         return REGISTRY.get();

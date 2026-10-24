@@ -72,5 +72,8 @@
   "message.samuraiboss.inscribe.upgraded": "%s в книге улучшено",
   "message.samuraiboss.inscribe.already_known": "В книге уже есть %s этого уровня или выше",
   "message.samuraiboss.inscribe.full": "В книге нет места для %s",
-  "message.samuraiboss.meteor.no_target": "Нет цели в пределах 100 блоков"
+  "message.samuraiboss.meteor.no_target": "Нет цели в пределах 100 блоков",
+  "school.samuraiboss.void": "Пустота",
+  "spell.samuraiboss.black_hole": "Чёрная дыра",
+  "entity.samuraiboss.black_hole": "Чёрная дыра"
 }

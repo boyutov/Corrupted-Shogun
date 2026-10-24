@@ -1,6 +1,7 @@
 package com.example.samurai.magic.registry;
 
 import com.example.samurai.SamuraiMod;
+import com.example.samurai.magic.entity.BlackHoleEntity;
 import com.example.samurai.magic.entity.MeteorEntity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
@@ -22,6 +23,15 @@ public final class MagicEntities {
                     .clientTrackingRange(10)
                     .updateInterval(1)
                     .build(SamuraiMod.MOD_ID + ":meteor"));
+
+    public static final RegistryObject<EntityType<BlackHoleEntity>> BLACK_HOLE = ENTITIES.register("black_hole",
+            () -> EntityType.Builder.<BlackHoleEntity>of(BlackHoleEntity::new, MobCategory.MISC)
+                    .sized(1f, 1f)
+                    .fireImmune()
+                    .noSave()
+                    .clientTrackingRange(8)
+                    .updateInterval(20)
+                    .build(SamuraiMod.MOD_ID + ":black_hole"));
 
     private MagicEntities() {
     }

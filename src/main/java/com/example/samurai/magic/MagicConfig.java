@@ -9,6 +9,7 @@ public final class MagicConfig {
 
     public static final ForgeConfigSpec.BooleanValue METEOR_DESTROYS_TERRAIN;
     public static final ForgeConfigSpec.IntValue METEOR_BLOCKS_PER_TICK;
+    public static final ForgeConfigSpec.BooleanValue BLACK_HOLE_AFFECTS_PLAYERS;
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
@@ -22,6 +23,11 @@ public final class MagicConfig {
                         "Measured in a dev client: a 1490-block crater in one tick took 5-145 ms, often over the",
                         "50 ms tick budget. The default splits levels 4 and 5 into 2 and 3 ticks.")
                 .defineInRange("blocksPerTick", 750, 64, 100_000);
+        builder.pop();
+        builder.push("blackHole");
+        BLACK_HOLE_AFFECTS_PLAYERS = builder
+                .comment("Whether black holes pull and hurt other players (never their caster).")
+                .define("affectPlayers", true);
         builder.pop();
         SPEC = builder.build();
     }
