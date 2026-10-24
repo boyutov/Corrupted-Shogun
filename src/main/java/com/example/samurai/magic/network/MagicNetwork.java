@@ -10,7 +10,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 
 public final class MagicNetwork {
 
-    private static final String PROTOCOL = "5";
+    private static final String PROTOCOL = "6";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(SamuraiMod.MOD_ID, "magic"),
@@ -19,6 +19,9 @@ public final class MagicNetwork {
     private static int nextId;
 
     public static void register() {
+        CHANNEL.messageBuilder(MeteorGesturePacket.class, nextId++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(MeteorGesturePacket::encode).decoder(MeteorGesturePacket::decode)
+                .consumerMainThread(MeteorGesturePacket::handle).add();
         CHANNEL.messageBuilder(BookActionPacket.class, nextId++, NetworkDirection.PLAY_TO_SERVER)
                 .encoder(BookActionPacket::encode).decoder(BookActionPacket::decode).consumerMainThread(BookActionPacket::handle).add();
         CHANNEL.messageBuilder(SyncBookPacket.class, nextId++, NetworkDirection.PLAY_TO_CLIENT)

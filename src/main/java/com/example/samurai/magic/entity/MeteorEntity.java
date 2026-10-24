@@ -65,10 +65,12 @@ public class MeteorEntity extends Entity {
                     ClipContext.Fluid.NONE, this));
             if (hit.getType() != HitResult.Type.MISS) {
                 MeteorImpact.impact(server, this, hit);
+                endCasterGesture(server);
                 discard();
                 return;
             }
             if (tickCount > MAX_LIFETIME || to.y < server.getMinBuildHeight()) {
+                endCasterGesture(server);
                 discard();
                 return;
             }
@@ -76,6 +78,12 @@ public class MeteorEntity extends Entity {
             spawnTrail();
         }
         setPos(to);
+    }
+
+    private void endCasterGesture(ServerLevel server) {
+        if (ownerId != null && server.getPlayerByUUID(ownerId) instanceof ServerPlayer caster) {
+            com.example.samurai.magic.data.MagicData.get(caster).ifPresent(data -> data.meteorLanded(getUUID()));
+        }
     }
 
     /** Fire trail: particles only, never fire blocks. */

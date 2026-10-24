@@ -76,6 +76,7 @@ public final class MagicClientSetup {
         public static void loggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
             ClientMagicData.reset();
             MagicKeys.reset();
+            MeteorPlayerAnimation.reset();
             ClientLaunch.stop();
         }
 
@@ -88,6 +89,7 @@ public final class MagicClientSetup {
                 Minecraft mc = Minecraft.getInstance();
                 if (mc.player != null && !mc.isPaused()) {
                     ClientMagicData.tick();
+                    MeteorPlayerAnimation.tick();
                 }
                 MagicKeys.handleInput(mc);
             }

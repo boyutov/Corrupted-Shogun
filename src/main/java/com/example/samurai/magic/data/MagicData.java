@@ -2,6 +2,9 @@ package com.example.samurai.magic.data;
 
 import com.example.samurai.magic.casting.CastSource;
 import com.example.samurai.magic.network.MagicNetwork;
+import com.example.samurai.magic.network.MeteorGesturePacket;
+import net.minecraftforge.network.PacketDistributor;
+import java.util.UUID;
 import com.example.samurai.magic.network.SyncCastPacket;
 import com.example.samurai.magic.network.SyncCooldownsPacket;
 import com.example.samurai.magic.network.SyncManaPacket;
@@ -214,6 +217,53 @@ public class MagicData implements INBTSerializable<CompoundTag> {
         castDirty = true;
     }
 
+    // ---- meteor casting gesture (transient, server -> observers) ----
+
+    @Nullable private MeteorGesture meteorGesture;
+    @Nullable private UUID gestureMeteor;
+
+    @Nullable
+    public MeteorGesture getMeteorGesture() {
+        return meteorGesture != null && !meteorGesture.expired(player.level().getGameTime()) ? meteorGesture : null;
+    }
+
+    public void raiseMeteorArms(int duration) {
+        gestureMeteor = null;
+        animateMeteorArms(duration, 1);
+    }
+
+    public void followMeteor(UUID meteor, int flightTicks) {
+        gestureMeteor = meteor;
+        animateMeteorArms(flightTicks, 0);
+    }
+
+    public void meteorLanded(UUID meteor) {
+        if (meteor.equals(gestureMeteor)) {
+            gestureMeteor = null;
+            animateMeteorArms(4, 0);
+        }
+    }
+
+    public void lowerMeteorArms() {
+        gestureMeteor = null;
+        animateMeteorArms(8, 0);
+    }
+
+    public void resetMeteorArms() {
+        gestureMeteor = null;
+        if (meteorGesture != null) animateMeteorArms(0, 0);
+    }
+
+    private void animateMeteorArms(int duration, float target) {
+        if (!(player instanceof ServerPlayer sp)) return;
+        long now = player.level().getGameTime();
+        float from = getMeteorGesture() == null ? 0 : meteorGesture.amount(now);
+        MeteorGesture next = new MeteorGesture(now, duration, from, target);
+        meteorGesture = duration > 0 ? next : null;
+        MagicNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> sp),
+                new MeteorGesturePacket(sp.getUUID(), sp.level().dimension().location(), next));
+    }
+
     // ---- fall immunity ----
 
     public void grantFallImmunity() {
@@ -246,6 +296,10 @@ public class MagicData implements INBTSerializable<CompoundTag> {
 
     /** Server-side, once per player tick. Mana regen only; casting ticks in SpellCasting. */
     public void tick() {
+        if (meteorGesture != null && meteorGesture.expired(player.level().getGameTime())) {
+            meteorGesture = null;
+            gestureMeteor = null;
+        }
         float max = getMaxMana();
         if (mana < 0f || mana > max) {
             // Fresh player starts full; otherwise max mana dropped below current.

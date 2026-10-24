@@ -92,6 +92,18 @@ public final class MagicDataEvents {
         });
     }
 
+    @SubscribeEvent
+    public static void startTracking(PlayerEvent.StartTracking event) {
+        if (event.getEntity() instanceof ServerPlayer observer && event.getTarget() instanceof ServerPlayer caster) {
+            MagicData.get(caster).ifPresent(data -> {
+                MeteorGesture gesture = data.getMeteorGesture();
+                if (gesture != null) com.example.samurai.magic.network.MagicNetwork.sendToPlayer(observer,
+                        new com.example.samurai.magic.network.MeteorGesturePacket(caster.getUUID(),
+                                caster.level().dimension().location(), gesture));
+            });
+        }
+    }
+
     private MagicDataEvents() {
     }
 }

@@ -113,6 +113,7 @@ public class MeteorSpell extends Spell {
         tag.putDouble(TAG_HEADING_Z, plan.heading().z);
         // Held until the next landing, wherever that is — not for a fixed time.
         data.grantFallImmunity();
+        data.raiseMeteorArms(CAST_TIME);
         MagicNetwork.sendToPlayer(caster, new LaunchPacket(caster.position(), flightOffset(plan.heading()), CAST_TIME));
     }
 
@@ -127,6 +128,7 @@ public class MeteorSpell extends Spell {
     public void onCastInterrupted(ServerLevel level, ServerPlayer caster, int spellLevel, MagicData data,
                                   CastEndReason reason) {
         MagicNetwork.sendToPlayer(caster, LaunchPacket.stop());
+        data.lowerMeteorArms();
     }
 
     @Override
@@ -139,6 +141,8 @@ public class MeteorSpell extends Spell {
         meteor.setPos(spawnPoint(impact, heading));
         meteor.launchTowards(impact, MeteorEntity.SPEED);
         level.addFreshEntity(meteor);
+        int flightTicks = (int) Math.ceil(meteor.position().distanceTo(impact) / MeteorEntity.SPEED);
+        data.followMeteor(meteor.getUUID(), flightTicks);
     }
 
     // ---- planning ----

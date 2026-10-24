@@ -54,6 +54,7 @@ public final class CastingEvents {
     public static void died(LivingDeathEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             SpellCasting.endCast(player, CastEndReason.CANCELLED);
+            MagicData.get(player).ifPresent(MagicData::resetMeteorArms);
         }
     }
 
@@ -61,6 +62,7 @@ public final class CastingEvents {
     public static void loggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             SpellCasting.endCast(player, CastEndReason.CANCELLED);
+            MagicData.get(player).ifPresent(MagicData::resetMeteorArms);
         }
     }
 
@@ -68,6 +70,7 @@ public final class CastingEvents {
     public static void changedDimension(PlayerEvent.PlayerChangedDimensionEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             SpellCasting.endCast(player, CastEndReason.CANCELLED);
+            MagicData.get(player).ifPresent(MagicData::resetMeteorArms);
         }
     }
 
