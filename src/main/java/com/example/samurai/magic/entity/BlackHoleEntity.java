@@ -37,8 +37,8 @@ import java.util.UUID;
 /**
  * Seven-second singularity. Pulls living things in sight within 30 blocks towards its
  * centre, holds the ones that reach it, and deals 2 magic damage to each once a second.
- * Never touches its caster or what the caster owns, items, vehicles or blocks. No model:
- * the look is all particles, spawned client-side.
+ * Never touches its caster or what the caster owns, items, vehicles or blocks. Drawn by
+ * BlackHoleRenderer (horizon, disk, lensing) with a particle inflow from BlackHoleVfx.
  *
  * <p>Mobs are held for real. Players can only be nudged (their movement is client-side),
  * so for them it pulls but can be escaped.
@@ -184,6 +184,12 @@ public class BlackHoleEntity extends Entity {
             level.sendParticles(viewer, new DustParticleOptions(PURPLE_HI, 2.5f), true, getX(), getY(), getZ(),
                     40, 1.5, 1.5, 1.5, 0);
         }
+    }
+
+    /** Client side: the flash and jolt of the collapse. */
+    @Override
+    public void onClientRemoval() {
+        DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> BlackHoleVfx.collapse(this));
     }
 
     @Override

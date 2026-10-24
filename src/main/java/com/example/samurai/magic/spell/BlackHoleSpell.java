@@ -26,7 +26,7 @@ public class BlackHoleSpell extends Spell {
                 .school(SpellSchool.VOID)
                 .castType(CastType.LONG)
                 .levels(1, 1)
-                .manaCost(120f, 0f)
+                .manaCost(60f, 0f)
                 .castTime(30)
                 .cooldown(600));
     }

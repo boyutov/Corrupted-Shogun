@@ -8,7 +8,6 @@ import com.example.samurai.magic.registry.MagicItems;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
-import net.minecraft.client.renderer.entity.NoopRenderer;
 import net.minecraftforge.client.event.EntityRenderersEvent;
 import net.minecraftforge.client.event.RegisterColorHandlersEvent;
 import net.minecraftforge.client.event.RegisterGuiOverlaysEvent;
@@ -34,8 +33,7 @@ public final class MagicClientSetup {
         @SubscribeEvent
         public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
             event.registerEntityRenderer(MagicEntities.METEOR.get(), MeteorRenderer::new);
-            // Particles only, drawn from the entity's client tick.
-            event.registerEntityRenderer(MagicEntities.BLACK_HOLE.get(), NoopRenderer::new);
+            event.registerEntityRenderer(MagicEntities.BLACK_HOLE.get(), BlackHoleRenderer::new);
         }
 
         /** Tints the scroll's wax seal (model layer 1) with the spell's school colour. */

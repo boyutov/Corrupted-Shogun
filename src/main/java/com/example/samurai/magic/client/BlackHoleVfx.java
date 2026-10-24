@@ -1,5 +1,6 @@
 package com.example.samurai.magic.client;
 
+import com.example.samurai.client.vfx.CameraShake;
 import com.example.samurai.magic.entity.BlackHoleEntity;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.ParticleStatus;
@@ -11,10 +12,10 @@ import net.minecraft.world.level.Level;
 import org.joml.Vector3f;
 
 /**
- * The black hole's whole look: spiral arms of portal motes streaming into a black core
- * ringed by a purple disk. Spawned as always-visible particles, because with no model a
- * "Minimal particles" setting would otherwise erase the effect entirely; the counts still
- * follow that setting.
+ * The black hole's moving parts: spiral arms of portal motes streaming into the core,
+ * sparks flung off the disk, a low rumble of camera shake near it, and the collapse flash.
+ * Particles are always-visible (so "Minimal particles" can't erase the spell's main cue),
+ * with counts still following that setting. The body itself is BlackHoleRenderer.
  */
 public final class BlackHoleVfx {
 
@@ -41,20 +42,46 @@ public final class BlackHoleVfx {
             level.addAlwaysVisibleParticle(ParticleTypes.PORTAL, true, x, y - 0.5, z,
                     Math.cos(angle) * r, dy, Math.sin(angle) * r);
         }
-        // Accretion disk.
-        for (int i = 0, n = count(10, density); i < n; i++) {
-            double r = 1.4 + random.nextDouble() * 2.6;
+        // Dust glinting just outside the disk's rim.
+        for (int i = 0, n = count(8, density); i < n; i++) {
+            double r = 5.5 + random.nextDouble() * 2.5;
             double angle = random.nextDouble() * Mth.TWO_PI - spin * 2;
-            Vector3f color = r < 2.4 ? BlackHoleEntity.PURPLE_HI
-                    : (random.nextBoolean() ? BlackHoleEntity.PURPLE : BlackHoleEntity.PURPLE_LO);
-            level.addAlwaysVisibleParticle(new DustParticleOptions(color, 1.2f), true, x + Math.cos(angle) * r,
-                    y + (random.nextDouble() - 0.5) * 0.3, z + Math.sin(angle) * r, 0, 0, 0);
+            Vector3f color = random.nextBoolean() ? BlackHoleEntity.PURPLE : BlackHoleEntity.PURPLE_LO;
+            level.addAlwaysVisibleParticle(new DustParticleOptions(color, 1.0f), true, x + Math.cos(angle) * r,
+                    y + (random.nextDouble() - 0.5) * 0.8, z + Math.sin(angle) * r, 0, 0, 0);
         }
-        // Core.
-        for (int i = 0, n = count(6, density); i < n; i++) {
-            level.addAlwaysVisibleParticle(new DustParticleOptions(BlackHoleEntity.VOID, 3.0f), true,
-                    x + (random.nextDouble() - 0.5) * 0.8, y + (random.nextDouble() - 0.5) * 0.8,
-                    z + (random.nextDouble() - 0.5) * 0.8, 0, 0, 0);
+        // Now and then a spark is flung off the inner disk along its spin.
+        if (random.nextFloat() < 0.35f * density) {
+            double angle = random.nextDouble() * Mth.TWO_PI;
+            double r = 2.0;
+            level.addAlwaysVisibleParticle(ParticleTypes.END_ROD, true, x + Math.cos(angle) * r, y,
+                    z + Math.sin(angle) * r, -Math.sin(angle) * 0.25, 0.02, Math.cos(angle) * 0.25);
+        }
+        // Low rumble within 16 blocks.
+        if (hole.tickCount % 5 == 0) {
+            shakeFor(hole, 0.35f, 16f, 0.75f);
+        }
+    }
+
+    /** Flash and shockwave when the hole winks out. */
+    public static void collapse(BlackHoleEntity hole) {
+        Level level = hole.level();
+        RandomSource random = level.getRandom();
+        level.addAlwaysVisibleParticle(ParticleTypes.FLASH, true, hole.getX(), hole.getY(), hole.getZ(), 0, 0, 0);
+        for (int i = 0; i < 60; i++) {
+            double yaw = random.nextDouble() * Mth.TWO_PI;
+            double pitch = (random.nextDouble() - 0.5) * 0.6;
+            double speed = 0.4 + random.nextDouble() * 0.5;
+            level.addAlwaysVisibleParticle(ParticleTypes.END_ROD, true, hole.getX(), hole.getY(), hole.getZ(),
+                    Math.cos(yaw) * Math.cos(pitch) * speed, Math.sin(pitch) * speed, Math.sin(yaw) * Math.cos(pitch) * speed);
+        }
+        shakeFor(hole, 2.5f, 32f, 0.8f);
+    }
+
+    private static void shakeFor(BlackHoleEntity hole, float amount, float falloff, float retain) {
+        var player = Minecraft.getInstance().player;
+        if (player != null) {
+            CameraShake.addAtDistance(amount, (float) player.position().distanceTo(hole.position()), falloff, retain);
         }
     }
 
