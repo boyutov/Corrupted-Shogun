@@ -1,6 +1,7 @@
 package com.example.samurai.magic.client;
 
 import com.example.samurai.magic.item.SpellBookItem;
+import com.example.samurai.magic.item.BookLocation;
 import com.example.samurai.magic.item.SpellScrollItem;
 import com.example.samurai.magic.item.SpellSlot;
 import com.example.samurai.magic.spell.Spell;
@@ -19,6 +20,12 @@ public final class ClientSpellInfo {
     /** The spell the player would cast with right click: main hand first, like vanilla use. */
     @Nullable
     public static SpellSlot heldSpell(LocalPlayer player) {
+        if (player.isUsingItem()) {
+            SpellSlot scroll = SpellScrollItem.getSpell(player.getUseItem());
+            if (scroll != null) return scroll;
+        }
+        ItemStack equipped = BookLocation.EQUIPPED.get(player);
+        if (equipped.getItem() instanceof SpellBookItem) return SpellBookItem.getActive(equipped);
         for (InteractionHand hand : InteractionHand.values()) {
             ItemStack stack = player.getItemInHand(hand);
             if (stack.getItem() instanceof SpellBookItem) {

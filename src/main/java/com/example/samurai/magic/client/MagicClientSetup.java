@@ -24,6 +24,12 @@ public final class MagicClientSetup {
     public static final class ModBus {
 
         @SubscribeEvent
+        public static void setup(net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent event) {
+            event.enqueueWork(() -> net.minecraft.client.gui.screens.MenuScreens.register(
+                    com.example.samurai.magic.registry.MagicMenus.BOOK_EQUIPMENT.get(), BookEquipmentScreen::new));
+        }
+
+        @SubscribeEvent
         public static void registerOverlays(RegisterGuiOverlaysEvent event) {
             event.registerAbove(VanillaGuiOverlay.HOTBAR.id(), "mana_bar", ManaHudOverlay.INSTANCE);
             // After the item name so leftHeight/rightHeight are final and the bar can sit above it.
@@ -55,6 +61,8 @@ public final class MagicClientSetup {
             event.register(MagicKeys.OPEN_SPELL_MENU);
             event.register(MagicKeys.PREVIOUS_SPELL);
             event.register(MagicKeys.NEXT_SPELL);
+            event.register(MagicKeys.OPEN_BOOK_EQUIPMENT);
+            event.register(MagicKeys.CAST_EQUIPPED_BOOK);
         }
 
         private ModBus() {
@@ -67,6 +75,7 @@ public final class MagicClientSetup {
         @SubscribeEvent
         public static void loggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
             ClientMagicData.reset();
+            MagicKeys.reset();
             ClientLaunch.stop();
         }
 

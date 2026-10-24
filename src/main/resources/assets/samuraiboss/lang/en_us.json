@@ -49,7 +49,7 @@
   "tooltip.samuraiboss.cast_time": "Cast time: %s s",
   "tooltip.samuraiboss.cooldown": "Cooldown: %s s",
   "message.samuraiboss.no_spell": "No spell selected",
-  "message.samuraiboss.no_book": "Hold a spell book to choose a spell",
+  "message.samuraiboss.no_book": "Equip a book in its slot or hold it in your hand",
   "screen.samuraiboss.spell_book": "Choose a spell",
   "screen.samuraiboss.spell_book.empty": "— empty —",
   "key.categories.samuraiboss": "Shogun Magic",
@@ -75,5 +75,9 @@
   "message.samuraiboss.meteor.no_target": "No target within 100 blocks",
   "school.samuraiboss.void": "Void",
   "spell.samuraiboss.black_hole": "Black Hole",
-  "entity.samuraiboss.black_hole": "Black Hole"
+  "entity.samuraiboss.black_hole": "Black Hole",
+  "key.samuraiboss.book_equipment": "Book equipment",
+  "key.samuraiboss.cast_equipped_book": "Cast equipped book (hold)",
+  "screen.samuraiboss.equipment": "Spellbook equipment",
+  "screen.samuraiboss.equipment.hint": "Place your book in this slot"
 }

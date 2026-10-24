@@ -76,6 +76,11 @@ public final class SpellCasting {
         if (!data.isCasting()) {
             return;
         }
+        if (data.getCastSource() == CastSource.EQUIPPED_BOOK
+                && (!data.hasBookHold() || player.containerMenu != player.inventoryMenu)) {
+            endCast(player, CastEndReason.CANCELLED);
+            return;
+        }
         Spell spell = data.getCastingSpell();
         if (spell == null) {
             // Saved cast refers to a spell that no longer exists.

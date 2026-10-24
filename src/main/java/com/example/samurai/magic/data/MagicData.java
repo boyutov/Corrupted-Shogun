@@ -43,6 +43,18 @@ public class MagicData implements INBTSerializable<CompoundTag> {
     /** Ticks after granting during which standing on the ground does not end fall immunity (takeoff). */
     private static final int FALL_IMMUNITY_GRACE = 10;
 
+    private final net.minecraft.world.SimpleContainer bookInventory = new net.minecraft.world.SimpleContainer(1);
+    private boolean bookDirty = true;
+    private net.minecraft.world.item.ItemStack castingBook = net.minecraft.world.item.ItemStack.EMPTY;
+    private long bookHoldUntil;
+
+    public net.minecraft.world.SimpleContainer getBookInventory() { return bookInventory; }
+    public boolean isCastingEquippedBookPresent() {
+        return bookInventory.getItem(0) == castingBook && !castingBook.isEmpty();
+    }
+    public void refreshBookHold() { bookHoldUntil = player.level().getGameTime() + 40; }
+    public boolean hasBookHold() { return player.level().getGameTime() <= bookHoldUntil; }
+
     private final Player player;
     private float mana;
 
@@ -74,6 +86,7 @@ public class MagicData implements INBTSerializable<CompoundTag> {
 
     public MagicData(Player player) {
         this.player = player;
+        bookInventory.addListener(c -> bookDirty = true);
         // Start full; overwritten by NBT for existing players.
         this.mana = -1f;
     }
@@ -171,6 +184,10 @@ public class MagicData implements INBTSerializable<CompoundTag> {
     }
 
     public void startCasting(Spell spell, int level, int duration, CastSource source, @Nullable InteractionHand hand) {
+        if (source == CastSource.EQUIPPED_BOOK) {
+            castingBook = bookInventory.getItem(0);
+            refreshBookHold();
+        }
         castingSpell = spell.getId();
         castingLevel = level;
         castTicksElapsed = 0;
@@ -261,6 +278,7 @@ public class MagicData implements INBTSerializable<CompoundTag> {
 
     /** Sends the full state regardless of what changed. Login, respawn, dimension change. */
     public void syncAll() {
+        bookDirty = true;
         manaDirty = true;
         castDirty = true;
         cooldowns.markDirty();
@@ -279,6 +297,10 @@ public class MagicData implements INBTSerializable<CompoundTag> {
         if (!(player instanceof ServerPlayer sp) || sp.connection == null) {
             return;
         }
+        if (bookDirty) {
+            MagicNetwork.sendToPlayer(sp, new com.example.samurai.magic.network.SyncBookPacket(bookInventory.getItem(0).copy()));
+            bookDirty = false;
+        }
         if (castDirty) {
             MagicNetwork.sendToPlayer(sp, SyncCastPacket.of(this));
             castDirty = false;
@@ -292,6 +314,7 @@ public class MagicData implements INBTSerializable<CompoundTag> {
 
     /** Called from PlayerEvent.Clone (death or End-portal return). */
     public void copyFrom(MagicData other) {
+        bookInventory.setItem(0, other.bookInventory.getItem(0).copy());
         this.mana = other.mana;
         this.castingSpell = other.castingSpell;
         this.castingLevel = other.castingLevel;
@@ -310,6 +333,7 @@ public class MagicData implements INBTSerializable<CompoundTag> {
     @Override
     public CompoundTag serializeNBT() {
         CompoundTag tag = new CompoundTag();
+        tag.put("EquippedBook", bookInventory.getItem(0).save(new CompoundTag()));
         tag.putFloat("Mana", mana);
         if (castingSpell != null) {
             CompoundTag cast = new CompoundTag();
@@ -335,6 +359,10 @@ public class MagicData implements INBTSerializable<CompoundTag> {
     public void deserializeNBT(CompoundTag tag) {
         // No clamping here: attributes may not be loaded yet. tick() clamps.
         mana = tag.contains("Mana") ? tag.getFloat("Mana") : -1f;
+        net.minecraft.world.item.ItemStack savedBook = net.minecraft.world.item.ItemStack.of(tag.getCompound("EquippedBook"));
+        if (!(savedBook.getItem() instanceof com.example.samurai.magic.item.SpellBookItem)) savedBook = net.minecraft.world.item.ItemStack.EMPTY;
+        savedBook.setCount(Math.min(1, savedBook.getCount()));
+        bookInventory.setItem(0, savedBook);
         clearCasting();
         if (tag.contains("Cast", Tag.TAG_COMPOUND)) {
             CompoundTag cast = tag.getCompound("Cast");

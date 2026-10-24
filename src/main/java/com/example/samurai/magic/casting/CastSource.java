@@ -25,6 +25,16 @@ public enum CastSource {
             return active != null && active.spell() == spell && active.level() == level;
         }
     },
+    EQUIPPED_BOOK {
+        @Override
+        public boolean isStillHeld(ServerPlayer player, @Nullable InteractionHand hand, Spell spell, int level) {
+            return com.example.samurai.magic.data.MagicData.get(player).map(data -> {
+                SpellSlot active = SpellBookItem.getActive(data.getBookInventory().getItem(0));
+                return data.isCastingEquippedBookPresent() && active != null
+                        && active.spell() == spell && active.level() == level;
+            }).orElse(false);
+        }
+    },
     SCROLL {
         @Override
         public boolean isStillHeld(ServerPlayer player, @Nullable InteractionHand hand, Spell spell, int level) {

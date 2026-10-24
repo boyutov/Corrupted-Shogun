@@ -49,7 +49,7 @@
   "tooltip.samuraiboss.cast_time": "Время каста: %s с",
   "tooltip.samuraiboss.cooldown": "Перезарядка: %s с",
   "message.samuraiboss.no_spell": "Заклинание не выбрано",
-  "message.samuraiboss.no_book": "Возьмите в руку книгу заклинаний",
+  "message.samuraiboss.no_book": "Экипируйте книгу в специальный слот или возьмите в руку",
   "screen.samuraiboss.spell_book": "Выбор заклинания",
   "screen.samuraiboss.spell_book.empty": "— пусто —",
   "key.categories.samuraiboss": "Магия Сёгуна",
@@ -75,5 +75,9 @@
   "message.samuraiboss.meteor.no_target": "Нет цели в пределах 100 блоков",
   "school.samuraiboss.void": "Пустота",
   "spell.samuraiboss.black_hole": "Чёрная дыра",
-  "entity.samuraiboss.black_hole": "Чёрная дыра"
+  "entity.samuraiboss.black_hole": "Чёрная дыра",
+  "key.samuraiboss.book_equipment": "Слот книги",
+  "key.samuraiboss.cast_equipped_book": "Каст из книги (удерживать)",
+  "screen.samuraiboss.equipment": "Книга заклинаний",
+  "screen.samuraiboss.equipment.hint": "Поместите книгу в слот"
 }

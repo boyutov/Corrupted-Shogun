@@ -78,6 +78,20 @@ public final class MagicDataEvents {
         MagicData.get(event.getEntity()).ifPresent(MagicData::syncAll);
     }
 
+    @SubscribeEvent
+    public static void dropped(net.minecraftforge.event.entity.living.LivingDropsEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        if (player.level().getGameRules().getBoolean(net.minecraft.world.level.GameRules.RULE_KEEPINVENTORY)) return;
+        MagicData.get(player).ifPresent(data -> {
+            var stack = data.getBookInventory().removeItemNoUpdate(0);
+            if (!stack.isEmpty()) {
+                var p = event.getEntity();
+                event.getDrops().add(new net.minecraft.world.entity.item.ItemEntity(p.level(), p.getX(), p.getY(), p.getZ(), stack));
+                data.getBookInventory().setChanged();
+            }
+        });
+    }
+
     private MagicDataEvents() {
     }
 }

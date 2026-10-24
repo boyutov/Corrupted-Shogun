@@ -25,6 +25,7 @@ public final class MagicSetup {
         MagicSpells.SPELLS.register(modBus);
         MagicItems.ITEMS.register(modBus);
         MagicItems.TABS.register(modBus);
+        com.example.samurai.magic.registry.MagicMenus.MENUS.register(modBus);
         MagicEntities.ENTITIES.register(modBus);
         ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, MagicConfig.SPEC);
 

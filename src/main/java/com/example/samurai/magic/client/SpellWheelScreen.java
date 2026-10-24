@@ -2,6 +2,7 @@ package com.example.samurai.magic.client;
 
 import com.example.samurai.SamuraiMod;
 import com.example.samurai.magic.item.SpellBookItem;
+import com.example.samurai.magic.item.BookLocation;
 import com.example.samurai.magic.item.SpellSlot;
 import com.example.samurai.magic.network.MagicNetwork;
 import com.example.samurai.magic.network.SelectSpellPacket;
@@ -38,18 +39,20 @@ public class SpellWheelScreen extends Screen {
     private static final float GAP_RADIANS = 0.04f;
     private static final int ARC_STEPS = 24;
 
-    private final InteractionHand hand;
+    private final BookLocation location;
     /** Book slot index for each sector, filled slots only, in book order clockwise from the top. */
     private final List<Integer> sectors = new ArrayList<>();
     private int hovered = -1;
 
-    public SpellWheelScreen(InteractionHand hand) {
+    public SpellWheelScreen(InteractionHand hand) { this(BookLocation.of(hand)); }
+
+    public SpellWheelScreen(BookLocation location) {
         super(Component.translatable("screen." + SamuraiMod.MOD_ID + ".spell_book"));
-        this.hand = hand;
+        this.location = location;
     }
 
     private ItemStack book() {
-        return minecraft == null || minecraft.player == null ? ItemStack.EMPTY : minecraft.player.getItemInHand(hand);
+        return minecraft == null || minecraft.player == null ? ItemStack.EMPTY : location.get(minecraft.player);
     }
 
     @Override
@@ -89,6 +92,8 @@ public class SpellWheelScreen extends Screen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        // Equipment can change through a server sync while the wheel is open.
+        init();
         hovered = sectorAt(mouseX, mouseY);
         int cx = width / 2;
         int cy = height / 2;
@@ -186,7 +191,7 @@ public class SpellWheelScreen extends Screen {
         int slot = hoveredSlot();
         if (slot >= 0 && SpellBookItem.setActiveIndex(book(), slot)) {
             // Applied locally for instant feedback; the server's copy syncs back anyway.
-            MagicNetwork.CHANNEL.sendToServer(new SelectSpellPacket(hand, slot));
+            MagicNetwork.CHANNEL.sendToServer(new SelectSpellPacket(location, slot));
         }
         onClose();
     }
