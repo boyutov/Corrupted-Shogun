@@ -87,7 +87,7 @@ public final class MagicAutoTest {
     /** "all" (default), or "meteor" / "blackhole" for just that spell's part. */
     private static final String MODE = System.getProperty("samuraiboss.autotest", "");
     private static final boolean ENABLED = !MODE.isEmpty() && !MODE.equals("false");
-    private static final boolean FULL = !MODE.equals("meteor") && !MODE.equals("blackhole");
+    private static final boolean FULL = !MODE.equals("meteor") && !MODE.equals("blackhole") && !MODE.equals("boss");
     private static final boolean RUN_METEOR = FULL || MODE.equals("meteor");
     private static final boolean RUN_BLACK_HOLE = FULL || MODE.equals("blackhole");
     private static final String WORLD = "samuraiboss-autotest-" + System.currentTimeMillis();
@@ -151,6 +151,7 @@ public final class MagicAutoTest {
         });
         waitTicks(40);
 
+        if (MODE.equals("boss")) bossSteps();
         if (FULL) {
             frameworkSteps();
         }
@@ -163,6 +164,164 @@ public final class MagicAutoTest {
         }
 
         act("finish", this::finish);
+    }
+
+    // Boss checks run against real world collision, entity ticks, NBT and the client renderer.
+    private SamuraiBossEntity combatBoss;
+    private IronGolem skyTarget, groundedVictim, jumpingVictim;
+    private Vec3 markedPoint;
+    private int groundedHits, jumpingHits;
+    private boolean countWaveHits;
+    private double bossMaxY;
+
+    private SamuraiBossEntity newCombatBoss(ServerLevel level, double x, double z) {
+        SamuraiBossEntity entity = ModEntities.SAMURAI_SHOGUN.get().create(level);
+        entity.setNoAi(true);
+        entity.moveTo(x, ARENA_TOP + 1, z, -90, 0);
+        net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
+        entity.addAdditionalSaveData(tag);
+        tag.putFloat("NextPhaseThreshold", 0);
+        tag.putInt("SkyCooldown", 40);
+        entity.readAdditionalSaveData(tag);
+        level.addFreshEntity(entity);
+        return entity;
+    }
+
+    private IronGolem stationaryGolem(ServerLevel level, double x, double y, double z) {
+        IronGolem golem = spawn(level, EntityType.IRON_GOLEM, x, y, z);
+        golem.setNoAi(true);
+        golem.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.MAX_HEALTH).setBaseValue(1000);
+        golem.setHealth(1000);
+        return golem;
+    }
+
+    private void bossSteps() {
+        act("boss arena and camera", () -> onServer(() -> {
+            ServerLevel level = serverPlayer().serverLevel();
+            combatBoss = newCombatBoss(level, 0.5, 0.5);
+            skyTarget = stationaryGolem(level, 8.5, ARENA_TOP+1, 0.5);
+            combatBoss.setTarget(skyTarget);
+            serverPlayer().teleportTo(level, 19.5, ARENA_TOP+5, -15.5, 36, 10);
+            serverPlayer().getAbilities().flying = true;
+            serverPlayer().onUpdateAbilities();
+            return null;
+        }));
+        until("skyfall begins", () -> onServer(() -> combatBoss.getPhase() == SamuraiBossEntity.PHASE_SKYFALL), 160);
+        act("move target after telegraph; set up grounded and jumping victims", () -> onServer(() -> {
+            markedPoint = combatBoss.getSkyPoint();
+            skyTarget.teleportTo(-10.5, ARENA_TOP+1, -10.5);
+            groundedVictim = stationaryGolem(serverPlayer().serverLevel(), markedPoint.x+6, markedPoint.y, markedPoint.z);
+            jumpingVictim = stationaryGolem(serverPlayer().serverLevel(), markedPoint.x, markedPoint.y+1.1, markedPoint.z+6);
+            jumpingVictim.setNoGravity(true);
+            countWaveHits = true;
+            bossMaxY = combatBoss.getY();
+            return null;
+        }));
+        screenshot("boss_01_telegraph");
+        until("skyfall reaches apex", () -> onServer(() -> combatBoss.getPhaseAge() >= 27), 60);
+        screenshot("boss_02_skyfall");
+        until("skyfall impacts", () -> onServer(() -> combatBoss.getWaveAge() >= 0), 80);
+        check("landing stays at the originally marked point", () -> onServer(() -> combatBoss.position().distanceTo(markedPoint) < 0.25));
+        check("jump rises at least five blocks", () -> onServer(() -> bossMaxY - markedPoint.y >= 5));
+        screenshot("boss_03_impact");
+        waitTicks(15);
+        screenshot("boss_04_waves");
+        until("three waves finish", () -> onServer(() -> combatBoss.getWaveAge() < 0), 100);
+        check("grounded victim takes exactly three wave hits", () -> onServer(() -> {
+            record("   wave hits: grounded=" + groundedHits + ", airborne=" + jumpingHits);
+            return groundedHits == 3;
+        }));
+        check("jumping clears every wave", () -> onServer(() -> jumpingHits == 0 && jumpingVictim.getHealth() == 1000));
+        act("trigger rage at thirty percent", () -> onServer(() -> {
+            countWaveHits = false;
+            combatBoss.setTarget(null);
+            combatBoss.setHealth(combatBoss.getMaxHealth() * 0.30F);
+            return null;
+        }));
+        until("rage starts at thirty percent", () -> onServer(() -> combatBoss.getPhase() == SamuraiBossEntity.PHASE_ROAR), 50);
+        act("place roar victim", () -> onServer(() -> {
+            skyTarget.teleportTo(combatBoss.getX()+4, combatBoss.getY(), combatBoss.getZ());
+            skyTarget.getAttribute(net.minecraft.world.entity.ai.attributes.Attributes.KNOCKBACK_RESISTANCE).setBaseValue(0);
+            return null;
+        }));
+        waitTicks(22);
+        screenshot("boss_05_enrage");
+        check("roar knocks nearby victim back", () -> onServer(() -> skyTarget.getX() > combatBoss.getX()+4.2));
+        check("rage increases speed and damage", () -> onServer(() ->
+                Math.abs(combatBoss.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED) - 0.375) < 0.0001
+                && Math.abs(combatBoss.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE) - 21.6) < 0.001));
+        until("roar finishes", () -> onServer(() -> !combatBoss.isInPhase()), 80);
+        act("reload rage twice through world NBT", () -> onServer(() -> {
+            net.minecraft.nbt.CompoundTag saved = new net.minecraft.nbt.CompoundTag();
+            combatBoss.saveWithoutId(saved);
+            combatBoss.load(saved);
+            combatBoss.load(saved);
+            return null;
+        }));
+        check("rage persists without stacking modifiers", () -> onServer(() -> combatBoss.isEnraged()
+                && Math.abs(combatBoss.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE)-21.6) < 0.001));
+        act("resume enraged skyfall", () -> onServer(() -> {
+            skyTarget.teleportTo(0.5, ARENA_TOP+1, 0.5);
+            combatBoss.setTarget(skyTarget);
+            return null;
+        }));
+        until("enraged skyfall starts", () -> onServer(() -> combatBoss.getPhase() == SamuraiBossEntity.PHASE_SKYFALL), 180);
+        check("rage uses the shorter skyfall cooldown", () -> onServer(() -> {
+            net.minecraft.nbt.CompoundTag tag=new net.minecraft.nbt.CompoundTag();
+            combatBoss.addAdditionalSaveData(tag);
+            return tag.getInt("SkyCooldown") <= SamuraiBossEntity.ENRAGED_SKY_COOLDOWN
+                    && tag.getInt("SkyCooldown") > 70;
+        }));
+        until("enraged boss airborne", () -> onServer(() -> combatBoss.getPhaseAge() >= 25), 60);
+        act("unload and reconstruct boss mid-flight", () -> onServer(() -> {
+            net.minecraft.nbt.CompoundTag saved=new net.minecraft.nbt.CompoundTag();
+            combatBoss.saveWithoutId(saved);
+            combatBoss.discard();
+            combatBoss=ModEntities.SAMURAI_SHOGUN.get().create(serverPlayer().serverLevel());
+            combatBoss.load(saved);
+            serverPlayer().serverLevel().addFreshEntity(combatBoss);
+            return null;
+        }));
+        check("loading cancels transient attack and restores gravity", () -> onServer(() ->
+                combatBoss.getPhase() == SamuraiBossEntity.PHASE_NONE && !combatBoss.isNoGravity() && combatBoss.getWaveAge() < 0));
+        until("reloaded airborne boss lands", () -> onServer(() -> combatBoss.onGround()), 100);
+        act("test quarter-health threshold persistence", () -> onServer(() -> {
+            combatBoss.discard();
+            combatBoss=newCombatBoss(serverPlayer().serverLevel(), -4.5, 0.5);
+            net.minecraft.nbt.CompoundTag tag=new net.minecraft.nbt.CompoundTag();
+            combatBoss.addAdditionalSaveData(tag);
+            tag.putFloat("NextPhaseThreshold", 0.75F);
+            combatBoss.readAdditionalSaveData(tag);
+            combatBoss.setHealth(440);
+            combatBoss.setTarget(skyTarget);
+            return null;
+        }));
+        until("quarter-health charge begins", () -> onServer(() -> combatBoss.getPhase() == SamuraiBossEntity.PHASE_WINDUP), 40);
+        act("save and reload consumed threshold", () -> onServer(() -> {
+            net.minecraft.nbt.CompoundTag tag=new net.minecraft.nbt.CompoundTag();
+            combatBoss.saveWithoutId(tag);
+            combatBoss.load(tag);
+            combatBoss.setTarget(skyTarget);
+            return null;
+        }));
+        waitTicks(8);
+        check("reload does not repeat a consumed health phase", () -> onServer(() -> {
+            net.minecraft.nbt.CompoundTag tag=new net.minecraft.nbt.CompoundTag();
+            combatBoss.addAdditionalSaveData(tag);
+            return combatBoss.getPhase() == SamuraiBossEntity.PHASE_NONE && tag.getFloat("NextPhaseThreshold") == 0.5F;
+        }));
+        act("test low ceiling rejects leap", () -> onServer(() -> {
+            combatBoss.discard();
+            skyTarget.teleportTo(8.5, ARENA_TOP+1, 0.5);
+            combatBoss=newCombatBoss(serverPlayer().serverLevel(), 0.5, 0.5);
+            combatBoss.setTarget(skyTarget);
+            fill(serverPlayer().serverLevel(), new BlockPos(-2, ARENA_TOP+5,-2),
+                    new BlockPos(11, ARENA_TOP+5,3), Blocks.STONE);
+            return null;
+        }));
+        waitTicks(70);
+        check("low ceiling cannot trap boss in skyfall", () -> onServer(() ->
+                combatBoss.getPhase() == SamuraiBossEntity.PHASE_NONE && combatBoss.onGround() && combatBoss.getWaveAge() < 0));
     }
 
     /** Book, keys, cast types, damage threshold, persistence. Skipped with -Psamuraiboss.autotest=meteor. */
@@ -709,6 +868,9 @@ public final class MagicAutoTest {
 
     @SubscribeEvent
     public void serverTick(TickEvent.ServerTickEvent event) {
+        if (event.phase == TickEvent.Phase.END && combatBoss != null && countWaveHits) {
+            bossMaxY = Math.max(bossMaxY, combatBoss.getY());
+        }
         if (event.phase == TickEvent.Phase.END && sampling && hole != null) {
             sampleBlackHole();
         }
@@ -925,6 +1087,10 @@ public final class MagicAutoTest {
 
     @SubscribeEvent
     public void casterDamaged(LivingDamageEvent event) {
+        if (countWaveHits && event.getSource().getEntity() == combatBoss) {
+            if (event.getEntity() == groundedVictim) groundedHits++;
+            if (event.getEntity() == jumpingVictim) jumpingHits++;
+        }
         if (watchCasterDamage && event.getEntity() instanceof ServerPlayer) {
             casterDamage.add(event.getSource().getMsgId() + " " + event.getAmount());
         }

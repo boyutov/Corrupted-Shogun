@@ -1,6 +1,7 @@
 package com.example.samurai.client;
 
 import com.example.samurai.client.vfx.SwordTrail;
+import com.example.samurai.client.vfx.BossCombatEffects;
 import com.example.samurai.entity.SamuraiBossEntity;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -36,6 +37,7 @@ public class SamuraiBossRenderer extends GeoEntityRenderer<SamuraiBossEntity> {
         SwordTrail trail = SwordTrail.get(entity);
         trail.sample(getGeoModel(), entity, partialTick);
         trail.render(poseStack, bufferSource, entity, partialTick);
+        BossCombatEffects.render(entity, partialTick, poseStack, bufferSource);
     }
 
     /**

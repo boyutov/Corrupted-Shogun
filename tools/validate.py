@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
-import json, math, sys
+import argparse, json, math, sys
+from pathlib import Path
 
-GEO = "samurai_shogun/assets/modid/geo/samurai_shogun.geo.json"
-ANM = "samurai_shogun/assets/modid/animations/samurai_shogun.animation.json"
+ROOT = Path(__file__).resolve().parents[1]
+parser = argparse.ArgumentParser()
+parser.add_argument('--geo', type=Path, default=ROOT / 'src/main/resources/assets/samuraiboss/geo/samurai_shogun.geo.json')
+parser.add_argument('--animations', type=Path, default=ROOT / 'src/main/resources/assets/samuraiboss/animations/samurai_shogun.animation.json')
+args = parser.parse_args()
+GEO, ANM = args.geo, args.animations
 
 errors, warns = [], []
 
@@ -114,7 +119,7 @@ if ys:
 
 # animations reference real bones
 expected = {"idle", "walk", "attack_slash", "attack_heavy", "defend_stance", "death",
-            "phase_charge_windup", "phase_charge_run", "phase_heal_guard"}
+            "phase_charge_windup", "phase_charge_run", "phase_heal_guard", "skyfall", "enrage_roar"}
 found = set()
 for key, clip in anm["animations"].items():
     short = key.split(".")[-1]

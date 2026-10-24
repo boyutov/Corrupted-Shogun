@@ -6,11 +6,19 @@ and renders the posed geometry with a painter's algorithm.
 Rotation convention matches Blockbench / GeckoLib: X and Y are negated relative
 to a plain right-handed rotation, so negative X swings a hanging limb forward.
 """
-import json, math, re, sys
+import argparse, json, math, re, sys
+from pathlib import Path
 from PIL import Image, ImageDraw
 
-GEO = "samurai_shogun/assets/modid/geo/samurai_shogun.geo.json"
-ANM = "samurai_shogun/assets/modid/animations/samurai_shogun.animation.json"
+ROOT = Path(__file__).resolve().parents[1]
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--geo', type=Path, default=ROOT / 'src/main/resources/assets/samuraiboss/geo/samurai_shogun.geo.json')
+parser.add_argument('--animations', type=Path, default=ROOT / 'src/main/resources/assets/samuraiboss/animations/samurai_shogun.animation.json')
+parser.add_argument('--output', type=Path, default=ROOT / 'build/previews/pose_sheet.png')
+parser.add_argument('--shot', action='append', metavar='CLIP:SECONDS', help='Repeat for each pose to render')
+parser.add_argument('--scale', type=float, default=4.8)
+args = parser.parse_args()
+GEO, ANM = args.geo, args.animations
 
 geo = json.load(open(GEO))
 anm = json.load(open(ANM))["animations"]
@@ -34,7 +42,7 @@ COL = {
     "boot_r": (26, 26, 34), "boot_l": (26, 26, 34),
 }
 
-src = open("build_model.py").read()
+src = (Path(__file__).with_name("build_model.py")).read_text()
 defs = re.findall(r'\("([a-z_0-9]+)", (\[[^\]]+\]), (\[[^\]]+\]), "', src)
 lookup = {(tuple(json.loads(o)), tuple(json.loads(s))): n for n, o, s in defs}
 
@@ -44,7 +52,14 @@ def sample(clip_name, bone_name, channel, t, default):
     chans = clip.get("bones", {}).get(bone_name)
     if not chans or channel not in chans:
         return default
-    kfs = sorted(((float(k), v) for k, v in chans[channel].items()), key=lambda x: x[0])
+    value = chans[channel]
+    if isinstance(value, (int, float)):
+        return [value] * 3
+    if isinstance(value, list):
+        return value
+    def vector(v):
+        return v.get("post", v.get("pre", default)) if isinstance(v, dict) else v
+    kfs = sorted(((float(k), vector(v)) for k, v in value.items()), key=lambda x: x[0])
     if t <= kfs[0][0]:
         return kfs[0][1]
     if t >= kfs[-1][0]:
@@ -121,12 +136,26 @@ SHOTS = [
     ("phase_heal_guard", 0.0),
     ("attack_heavy", 0.55), ("death", 1.2),
 ]
+if args.shot:
+    SHOTS = []
+    for shot in args.shot:
+        try:
+            clip, time = shot.rsplit(':', 1)
+            time = float(time)
+            if f"animation.samurai_shogun.{clip}" not in anm or not math.isfinite(time):
+                raise ValueError()
+            SHOTS.append((clip, time))
+        except ValueError:
+            parser.error(f"Invalid shot {shot!r}; use an existing CLIP:SECONDS")
+
 VIEWS = [("SIDE", lambda p: (-p[2], p[1]), lambda q: max(c[0] for c in q)),
          ("FRONT", lambda p: (-p[0], p[1]), lambda q: max(c[2] for c in q))]
 
-SCALE = 5.6
-PANEL = 250
-ROW = int(58 * SCALE) + 40
+SCALE = args.scale
+if SCALE <= 0:
+    parser.error("--scale must be positive")
+PANEL = 300
+ROW = int(84 * SCALE) + 40
 W = PANEL * len(SHOTS)
 H = ROW * len(VIEWS)
 img = Image.new("RGB", (W, H), (240, 238, 234))
@@ -147,8 +176,9 @@ for vi, (vname, proj, depth) in enumerate(VIEWS):
             d.polygon(pts, fill=col, outline=(0, 0, 0))
         d.line([(si * PANEL, ROW * vi), (si * PANEL, ROW * (vi + 1))], fill=(210, 208, 202))
 
-img.save("samurai_shogun/pose_sheet.png")
-print("wrote pose_sheet.png", img.size)
+args.output.parent.mkdir(parents=True, exist_ok=True)
+img.save(args.output)
+print(f"wrote {args.output}", img.size)
 
 # report sword tip height per shot, to catch ground clipping
 for clip, t in SHOTS:
