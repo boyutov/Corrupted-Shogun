@@ -7,6 +7,7 @@ import com.example.samurai.magic.spell.Spell;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.event.entity.living.LivingDamageEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
+import net.minecraftforge.event.entity.living.LivingFallEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -30,6 +31,19 @@ public final class CastingEvents {
                 SpellCasting.endCast(player, CastEndReason.DAMAGE);
             }
         });
+    }
+
+    /** Spells like meteor launch the caster; the first landing afterwards is free. */
+    @SubscribeEvent
+    public static void fell(LivingFallEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            MagicData.get(player).ifPresent(data -> {
+                if (data.isFallImmune()) {
+                    data.clearFallImmunity();
+                    event.setCanceled(true);
+                }
+            });
+        }
     }
 
     @SubscribeEvent

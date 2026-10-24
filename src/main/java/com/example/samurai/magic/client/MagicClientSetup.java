@@ -1,10 +1,12 @@
 package com.example.samurai.magic.client;
 
 import com.example.samurai.SamuraiMod;
+import com.example.samurai.magic.registry.MagicEntities;
 import com.example.samurai.magic.registry.MagicItems;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
+import net.minecraftforge.client.event.EntityRenderersEvent;
 import net.minecraftforge.client.event.RegisterGuiOverlaysEvent;
 import net.minecraftforge.client.event.RegisterItemDecorationsEvent;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
@@ -23,6 +25,11 @@ public final class MagicClientSetup {
             event.registerAbove(VanillaGuiOverlay.HOTBAR.id(), "mana_bar", ManaHudOverlay.INSTANCE);
             // After the item name so leftHeight/rightHeight are final and the bar can sit above it.
             event.registerAbove(VanillaGuiOverlay.ITEM_NAME.id(), "cast_bar", CastBarOverlay.INSTANCE);
+        }
+
+        @SubscribeEvent
+        public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
+            event.registerEntityRenderer(MagicEntities.METEOR.get(), MeteorRenderer::new);
         }
 
         @SubscribeEvent

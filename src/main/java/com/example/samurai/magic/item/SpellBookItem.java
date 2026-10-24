@@ -165,7 +165,7 @@ public class SpellBookItem extends Item {
             }
         }
         if (active >= 0) {
-            SpellItemUse.appendSpellInfo(tooltip, slots.get(active));
+            SpellItemUse.appendSpellInfo(tooltip, slots.get(active), true);
         }
     }
 }

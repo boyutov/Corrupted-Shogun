@@ -3,6 +3,7 @@ package com.example.samurai.magic.registry;
 import com.example.samurai.SamuraiMod;
 import com.example.samurai.magic.spell.CastType;
 import com.example.samurai.magic.spell.EmptySpell;
+import com.example.samurai.magic.spell.MeteorSpell;
 import com.example.samurai.magic.spell.Spell;
 import com.example.samurai.magic.spell.TestStubSpell;
 import net.minecraft.resources.ResourceLocation;
@@ -53,6 +54,8 @@ public final class MagicSpells {
                     .manaCost(4f, 2f)
                     .castTime(100)
                     .cooldown(80)));
+
+    public static final RegistryObject<Spell> METEOR = SPELLS.register("meteor", MeteorSpell::new);
 
     public static IForgeRegistry<Spell> registry() {
         return REGISTRY.get();

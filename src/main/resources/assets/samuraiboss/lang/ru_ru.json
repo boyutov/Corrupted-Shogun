@@ -60,5 +60,9 @@
   "commands.samuraiboss.spellbook.removed": "Слот %s очищен",
   "commands.samuraiboss.spellbook.cleared": "Книга очищена",
   "key.samuraiboss.previous_spell": "Предыдущее заклинание",
-  "key.samuraiboss.next_spell": "Следующее заклинание"
+  "key.samuraiboss.next_spell": "Следующее заклинание",
+  "spell.samuraiboss.meteor": "Метеор",
+  "entity.samuraiboss.meteor": "Метеор",
+  "message.samuraiboss.meteor.no_room": "Нет места для взлёта",
+  "tooltip.samuraiboss.scroll_free": "Без маны: расходуется свиток"
 }

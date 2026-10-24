@@ -42,7 +42,7 @@ public final class SpellCasting {
         }
         // Only INSTANT pays now. LONG pays at the end, CONTINUOUS at the end of each
         // interval — this check just makes sure the first payment is affordable.
-        float cost = spell.getManaCost(spellLevel);
+        float cost = source.paysMana() ? spell.getManaCost(spellLevel) : 0f;
         if (!data.hasMana(cost)) {
             return CastResult.NOT_ENOUGH_MANA;
         }
@@ -98,8 +98,8 @@ public final class SpellCasting {
             return;
         }
 
-        if (spell.getCastType() == CastType.CONTINUOUS && elapsed % spell.getManaInterval() == 0
-                && !data.consumeMana(spell.getManaCost(spellLevel))) {
+        if (spell.getCastType() == CastType.CONTINUOUS && data.getCastSource().paysMana()
+                && elapsed % spell.getManaInterval() == 0 && !data.consumeMana(spell.getManaCost(spellLevel))) {
             endCast(player, CastEndReason.OUT_OF_MANA);
             return;
         }
@@ -123,6 +123,10 @@ public final class SpellCasting {
         int spellLevel = data.getCastingLevel();
         CastSource source = data.getCastSource();
         InteractionHand hand = data.getCastHand();
+        // Decide before the hooks: a successful scroll cast empties the very stack being used.
+        // RELEASED comes from Item#onStopUsing, i.e. vanilla is already ending the use.
+        boolean releaseUse = source.isItem() && reason != CastEndReason.RELEASED
+                && player.isUsingItem() && isSpellItem(player.getUseItem().getItem());
         // Clear before hooks so a hook that starts a new cast isn't clobbered.
         data.clearCasting();
 
@@ -138,7 +142,8 @@ public final class SpellCasting {
                 success = false;
                 actual = CastEndReason.CANCELLED;
             }
-            if (success && spell.getCastType() == CastType.LONG && !data.consumeMana(spell.getManaCost(spellLevel))) {
+            if (success && spell.getCastType() == CastType.LONG && source.paysMana()
+                    && !data.consumeMana(spell.getManaCost(spellLevel))) {
                 // Finished charging but can no longer pay.
                 success = false;
                 actual = CastEndReason.OUT_OF_MANA;
@@ -152,8 +157,7 @@ public final class SpellCasting {
                 spell.onCastInterrupted(level, player, spellLevel, data, actual);
             }
         }
-        // RELEASED comes from Item#onStopUsing, i.e. vanilla is already ending the use.
-        if (source.isItem() && reason != CastEndReason.RELEASED) {
+        if (releaseUse) {
             releaseSpellItem(player);
         }
         data.sync();
@@ -165,11 +169,11 @@ public final class SpellCasting {
      * (and its movement slowdown) until the button is released.
      */
     private static void releaseSpellItem(ServerPlayer player) {
-        if (player.isUsingItem() && isSpellItem(player.getUseItem().getItem())) {
+        if (player.isUsingItem()) {
             // stopUsingItem() calls Item#onStopUsing → endCast, which is a no-op by now.
             player.stopUsingItem();
-            stopClientUsing(player);
         }
+        stopClientUsing(player);
     }
 
     /**

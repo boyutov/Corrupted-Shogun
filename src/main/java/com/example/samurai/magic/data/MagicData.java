@@ -38,6 +38,8 @@ public class MagicData implements INBTSerializable<CompoundTag> {
     public static final float BASE_REGEN_FRACTION_PER_SECOND = 0.01f;
     /** Minimum ticks between two regen-driven mana packets. Cast and cooldown changes go out at once. */
     private static final int MANA_SYNC_INTERVAL = 5;
+    /** Ticks after granting during which standing on the ground does not end fall immunity (takeoff). */
+    private static final int FALL_IMMUNITY_GRACE = 10;
 
     private final Player player;
     private float mana;
@@ -52,6 +54,15 @@ public class MagicData implements INBTSerializable<CompoundTag> {
     /** Hand holding the item that started the cast; null for item-less sources. */
     @Nullable
     private InteractionHand castHand;
+    /**
+     * Per-cast scratch space for the spell (target point, start height...). Reset when a cast
+     * starts; deliberately kept through {@link #clearCasting} so the end hooks can still read it.
+     */
+    private CompoundTag castData = new CompoundTag();
+
+    /** Cancels the next landing's fall damage. Cleared on landing, not by a timer. */
+    private boolean fallImmune;
+    private int fallImmuneTicks;
 
     private final CooldownTracker cooldowns = new CooldownTracker();
 
@@ -152,6 +163,11 @@ public class MagicData implements INBTSerializable<CompoundTag> {
         return castHand;
     }
 
+    /** Spell-owned data for the current (or just-ended) cast. Saved with the player while casting. */
+    public CompoundTag getCastData() {
+        return castData;
+    }
+
     public void startCasting(Spell spell, int level, int duration, CastSource source, @Nullable InteractionHand hand) {
         castingSpell = spell.getId();
         castingLevel = level;
@@ -159,6 +175,7 @@ public class MagicData implements INBTSerializable<CompoundTag> {
         castTicksRemaining = duration;
         castSource = source;
         castHand = hand;
+        castData = new CompoundTag();
         castDirty = true;
     }
 
@@ -178,6 +195,26 @@ public class MagicData implements INBTSerializable<CompoundTag> {
         castDirty = true;
     }
 
+    // ---- fall immunity ----
+
+    public void grantFallImmunity() {
+        fallImmune = true;
+        fallImmuneTicks = 0;
+    }
+
+    public boolean isFallImmune() {
+        return fallImmune;
+    }
+
+    public void clearFallImmunity() {
+        fallImmune = false;
+    }
+
+    private boolean isSafelyLanded() {
+        return player.onGround() || player.isInWater() || player.isInLava() || player.onClimbable()
+                || player.isPassenger() || player.isFallFlying() || player.getAbilities().flying;
+    }
+
     // ---- tick & sync ----
 
     /** Server-side, once per player tick. Mana regen only; casting ticks in SpellCasting. */
@@ -189,6 +226,11 @@ public class MagicData implements INBTSerializable<CompoundTag> {
         } else if (mana < max) {
             float regen = (float) player.getAttributeValue(MagicAttributes.MANA_REGEN.get());
             addMana(max * BASE_REGEN_FRACTION_PER_SECOND * regen / 20f);
+        }
+
+        if (fallImmune && ++fallImmuneTicks > FALL_IMMUNITY_GRACE && isSafelyLanded()) {
+            // Ended a fall without a fall event (water, ladder, elytra, flight...).
+            fallImmune = false;
         }
 
         ticksSinceManaSync++;
@@ -247,6 +289,9 @@ public class MagicData implements INBTSerializable<CompoundTag> {
         this.castTicksRemaining = other.castTicksRemaining;
         this.castSource = other.castSource;
         this.castHand = other.castHand;
+        this.castData = other.castData.copy();
+        this.fallImmune = other.fallImmune;
+        this.fallImmuneTicks = other.fallImmuneTicks;
         this.cooldowns.copyFrom(other.cooldowns);
         this.manaDirty = true;
         this.castDirty = true;
@@ -266,9 +311,13 @@ public class MagicData implements INBTSerializable<CompoundTag> {
             if (castHand != null) {
                 cast.putString("Hand", castHand.name());
             }
+            cast.put("Data", castData.copy());
             tag.put("Cast", cast);
         }
         tag.put("Cooldowns", cooldowns.save());
+        if (fallImmune) {
+            tag.putBoolean("FallImmune", true);
+        }
         return tag;
     }
 
@@ -289,8 +338,11 @@ public class MagicData implements INBTSerializable<CompoundTag> {
                 case "OFF_HAND" -> InteractionHand.OFF_HAND;
                 default -> null;
             };
+            castData = cast.getCompound("Data");
         }
         cooldowns.load(tag.getList("Cooldowns", Tag.TAG_COMPOUND));
+        fallImmune = tag.getBoolean("FallImmune");
+        fallImmuneTicks = 0;
         manaDirty = true;
         castDirty = true;
     }

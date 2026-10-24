@@ -41,6 +41,12 @@ public enum CastSource {
                 player.getItemInHand(hand).shrink(1);
             }
         }
+
+        /** The scroll itself is the price. */
+        @Override
+        public boolean paysMana() {
+            return false;
+        }
     };
 
     /**
@@ -53,6 +59,11 @@ public enum CastSource {
 
     /** Called after {@link #isStillHeld} passed and the spell fired. */
     public void onCastSucceeded(ServerPlayer player, @Nullable InteractionHand hand) {
+    }
+
+    /** Whether casts from this source check and spend the caster's mana. */
+    public boolean paysMana() {
+        return true;
     }
 
     public boolean isItem() {

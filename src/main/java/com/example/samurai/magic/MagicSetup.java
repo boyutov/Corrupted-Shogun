@@ -3,12 +3,15 @@ package com.example.samurai.magic;
 import com.example.samurai.magic.data.MagicData;
 import com.example.samurai.magic.network.MagicNetwork;
 import com.example.samurai.magic.registry.MagicAttributes;
+import com.example.samurai.magic.registry.MagicEntities;
 import com.example.samurai.magic.registry.MagicItems;
 import com.example.samurai.magic.registry.MagicSpells;
 import net.minecraft.world.entity.EntityType;
 import net.minecraftforge.common.capabilities.RegisterCapabilitiesEvent;
 import net.minecraftforge.event.entity.EntityAttributeModificationEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.fml.ModLoadingContext;
+import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 
 /**
@@ -22,6 +25,8 @@ public final class MagicSetup {
         MagicSpells.SPELLS.register(modBus);
         MagicItems.ITEMS.register(modBus);
         MagicItems.TABS.register(modBus);
+        MagicEntities.ENTITIES.register(modBus);
+        ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, MagicConfig.SPEC);
 
         modBus.addListener(MagicSetup::registerCapabilities);
         modBus.addListener(MagicSetup::addPlayerAttributes);

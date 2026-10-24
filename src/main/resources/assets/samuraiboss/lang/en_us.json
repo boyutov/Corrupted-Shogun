@@ -60,5 +60,9 @@
   "commands.samuraiboss.spellbook.removed": "Cleared slot %s",
   "commands.samuraiboss.spellbook.cleared": "Spell book cleared",
   "key.samuraiboss.previous_spell": "Previous spell",
-  "key.samuraiboss.next_spell": "Next spell"
+  "key.samuraiboss.next_spell": "Next spell",
+  "spell.samuraiboss.meteor": "Meteor",
+  "entity.samuraiboss.meteor": "Meteor",
+  "message.samuraiboss.meteor.no_room": "No room to take off",
+  "tooltip.samuraiboss.scroll_free": "No mana: the scroll is spent instead"
 }

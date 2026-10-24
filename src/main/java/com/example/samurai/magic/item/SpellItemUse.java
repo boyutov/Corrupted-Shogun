@@ -45,7 +45,7 @@ public final class SpellItemUse {
             // Predict from the synced mana/cooldown/cast state so a doomed cast never
             // starts the hold pose. The server still decides and reports the reason.
             CastResult predicted = DistExecutor.unsafeCallWhenOn(Dist.CLIENT,
-                    () -> () -> ClientCastPrediction.predict(slot.spell(), slot.level()));
+                    () -> () -> ClientCastPrediction.predict(slot.spell(), slot.level(), source));
             if (predicted != null && !predicted.isSuccess()) {
                 return InteractionResultHolder.fail(stack);
             }
@@ -88,18 +88,23 @@ public final class SpellItemUse {
         }
     }
 
-    public static void appendSpellInfo(List<Component> tooltip, SpellSlot slot) {
+    /** @param paysMana false for scrolls, which cost the scroll instead of mana */
+    public static void appendSpellInfo(List<Component> tooltip, SpellSlot slot, boolean paysMana) {
         Spell spell = slot.spell();
         String key = "tooltip." + SamuraiMod.MOD_ID + ".";
         tooltip.add(Component.translatable(key + "school", spell.getSchool().getDisplayName())
                 .withStyle(ChatFormatting.GRAY));
         tooltip.add(Component.translatable(key + "cast_type", spell.getCastType().getDisplayName())
                 .withStyle(ChatFormatting.GRAY));
-        String cost = String.format("%.0f", spell.getManaCost(slot.level()));
-        Component mana = spell.getCastType() == CastType.CONTINUOUS
-                ? Component.translatable(key + "mana_per_interval", cost, seconds(spell.getManaInterval()))
-                : Component.translatable(key + "mana", cost);
-        tooltip.add(mana.copy().withStyle(ChatFormatting.BLUE));
+        if (paysMana) {
+            String cost = String.format("%.0f", spell.getManaCost(slot.level()));
+            Component mana = spell.getCastType() == CastType.CONTINUOUS
+                    ? Component.translatable(key + "mana_per_interval", cost, seconds(spell.getManaInterval()))
+                    : Component.translatable(key + "mana", cost);
+            tooltip.add(mana.copy().withStyle(ChatFormatting.BLUE));
+        } else {
+            tooltip.add(Component.translatable(key + "scroll_free").withStyle(ChatFormatting.BLUE));
+        }
         if (spell.getCastType().hasDuration()) {
             tooltip.add(Component.translatable(key + "cast_time", seconds(spell.getCastTime(slot.level())))
                     .withStyle(ChatFormatting.GRAY));

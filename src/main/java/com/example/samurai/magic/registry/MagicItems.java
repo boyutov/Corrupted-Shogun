@@ -38,7 +38,9 @@ public final class MagicItems {
                         output.accept(SPELL_BOOK.get());
                         output.accept(createTestBook());
                         for (Spell spell : castableSpells()) {
-                            output.accept(SpellScrollItem.create(spell, spell.getMinLevel()));
+                            for (int level = spell.getMinLevel(); level <= spell.getMaxLevel(); level++) {
+                                output.accept(SpellScrollItem.create(spell, level));
+                            }
                         }
                     })
                     .build());

@@ -1,5 +1,6 @@
 package com.example.samurai.magic.client;
 
+import com.example.samurai.magic.casting.CastSource;
 import com.example.samurai.magic.spell.CastResult;
 import com.example.samurai.magic.spell.Spell;
 
@@ -9,14 +10,14 @@ import com.example.samurai.magic.spell.Spell;
  */
 public final class ClientCastPrediction {
 
-    public static CastResult predict(Spell spell, int level) {
+    public static CastResult predict(Spell spell, int level, CastSource source) {
         if (ClientMagicData.isCasting()) {
             return CastResult.ALREADY_CASTING;
         }
         if (ClientMagicData.getCooldowns().isOnCooldown(spell)) {
             return CastResult.ON_COOLDOWN;
         }
-        if (ClientMagicData.getMana() < spell.getManaCost(level)) {
+        if (source.paysMana() && ClientMagicData.getMana() < spell.getManaCost(level)) {
             return CastResult.NOT_ENOUGH_MANA;
         }
         return CastResult.SUCCESS;

@@ -35,7 +35,12 @@ public final class MagicDataEvents {
         Player original = event.getOriginal();
         original.reviveCaps();
         MagicData.get(original).ifPresent(oldData ->
-                MagicData.get(event.getEntity()).ifPresent(newData -> newData.copyFrom(oldData)));
+                MagicData.get(event.getEntity()).ifPresent(newData -> {
+                    newData.copyFrom(oldData);
+                    if (event.isWasDeath()) {
+                        newData.clearFallImmunity();
+                    }
+                }));
         original.invalidateCaps();
     }
 

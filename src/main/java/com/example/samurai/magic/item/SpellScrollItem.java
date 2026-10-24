@@ -79,7 +79,7 @@ public class SpellScrollItem extends Item {
     public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip, TooltipFlag flag) {
         SpellSlot slot = getSpell(stack);
         if (slot != null) {
-            SpellItemUse.appendSpellInfo(tooltip, slot);
+            SpellItemUse.appendSpellInfo(tooltip, slot, false);
         }
     }
 }
