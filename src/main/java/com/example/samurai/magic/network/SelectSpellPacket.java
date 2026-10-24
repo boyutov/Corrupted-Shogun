@@ -17,7 +17,8 @@ public record SelectSpellPacket(BookLocation location, int slot) {
             var stack = location.get(p);
             var slots = SpellBookItem.getSlots(stack);
             if (stack.getItem() instanceof SpellBookItem && slot >= 0 && slot < slots.size() && slots.get(slot) != null) {
-                if (slot != SpellBookItem.getEffectiveActiveIndex(stack)) SpellCasting.endCast(p, CastEndReason.CANCELLED);
+                if (slot != SpellBookItem.getEffectiveActiveIndex(stack) && !MagicData.get(p).map(SpellCasting::isCommitted).orElse(false))
+                    SpellCasting.endCast(p, CastEndReason.CANCELLED);
                 SpellBookItem.setActiveIndex(stack, slot);
                 if (location == BookLocation.EQUIPPED) MagicData.get(p).ifPresent(d -> { d.getBookInventory().setChanged(); d.sync(); });
             }

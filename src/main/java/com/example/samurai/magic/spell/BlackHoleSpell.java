@@ -16,6 +16,7 @@ import net.minecraft.world.phys.Vec3;
  */
 public class BlackHoleSpell extends Spell {
 
+    private static final int CAST_TIME = 30;
     private static final double AIM_RANGE = 30.0;
     private static final double MISS_DISTANCE = 20.0;
     /** The centre floats this far off the surface it was aimed at, so it never sits inside a block. */
@@ -27,12 +28,25 @@ public class BlackHoleSpell extends Spell {
                 .castType(CastType.LONG)
                 .levels(1, 1)
                 .manaCost(60f, 0f)
-                .castTime(30)
+                .castTime(CAST_TIME)
                 .cooldown(600));
+    }
+
+    /** Both arms rise over the charge, the same gesture the meteor uses, and drop when it opens. */
+    @Override
+    public void onCastStart(ServerLevel level, ServerPlayer caster, int spellLevel, MagicData data) {
+        data.raiseMeteorArms(CAST_TIME);
+    }
+
+    @Override
+    public void onCastInterrupted(ServerLevel level, ServerPlayer caster, int spellLevel, MagicData data,
+                                  CastEndReason reason) {
+        data.lowerMeteorArms();
     }
 
     @Override
     public void onCast(ServerLevel level, ServerPlayer caster, int spellLevel, MagicData data) {
+        data.lowerMeteorArms();
         BlackHoleEntity hole = new BlackHoleEntity(level, caster);
         hole.setPos(aimPoint(level, caster));
         level.addFreshEntity(hole);

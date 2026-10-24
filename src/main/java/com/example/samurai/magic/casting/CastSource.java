@@ -14,6 +14,13 @@ import javax.annotation.Nullable;
 public enum CastSource {
     NONE,
     COMMAND,
+    /** An uninterruptible cast whose item or mana cost was already taken at the start. */
+    COMMITTED {
+        @Override
+        public boolean paysMana() {
+            return false;
+        }
+    },
     SPELLBOOK {
         @Override
         public boolean isStillHeld(ServerPlayer player, @Nullable InteractionHand hand, Spell spell, int level) {

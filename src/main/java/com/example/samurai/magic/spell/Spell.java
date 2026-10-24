@@ -129,12 +129,21 @@ public abstract class Spell {
      * Minimum damage of a single hit that interrupts this spell while it is being
      * cast. 0 = never interrupted by damage.
      */
+    /**
+     * Only the meteor, by design and not configurable: its cost is paid when the cast starts
+     * and the cast then always completes. Release, damage, letting go of the item or switching
+     * spells do not stop it; only death, logout, a dimension change or a command do.
+     */
+    public final boolean isUninterruptible() {
+        return this instanceof MeteorSpell;
+    }
+
     public float getInterruptDamageThreshold() {
         return interruptDamageThreshold;
     }
 
     public boolean isInterruptedBy(float damage) {
-        return interruptDamageThreshold > 0f && damage >= interruptDamageThreshold;
+        return !isUninterruptible() && interruptDamageThreshold > 0f && damage >= interruptDamageThreshold;
     }
 
     /** Spell-specific precondition (target in range, etc). Runs after the generic mana/cooldown checks. */

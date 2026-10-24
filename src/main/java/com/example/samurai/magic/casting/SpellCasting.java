@@ -59,6 +59,13 @@ public final class SpellCasting {
                 finishSuccessfully(level, player, spell, spellLevel, data, source, hand);
             }
             case LONG, CONTINUOUS -> {
+                if (spell.isUninterruptible() && spell.getCastType() == CastType.LONG) {
+                    // Pay up front; from here on nothing the caster does can take the cast back.
+                    data.consumeMana(cost);
+                    source.onCastSucceeded(player, hand);
+                    source = CastSource.COMMITTED;
+                    hand = null;
+                }
                 data.startCasting(spell, spellLevel, spell.getCastTime(spellLevel), source, hand);
                 spell.onCastStart(level, player, spellLevel, data);
             }
@@ -124,13 +131,16 @@ public final class SpellCasting {
         if (data == null || !data.isCasting()) {
             return;
         }
+        if (isCommitted(data) && (reason == CastEndReason.RELEASED || reason == CastEndReason.DAMAGE)) {
+            return;
+        }
         Spell spell = data.getCastingSpell();
         int spellLevel = data.getCastingLevel();
         CastSource source = data.getCastSource();
         InteractionHand hand = data.getCastHand();
         // Decide before the hooks: a successful scroll cast empties the very stack being used.
         // RELEASED comes from Item#onStopUsing, i.e. vanilla is already ending the use.
-        boolean releaseUse = source.isItem() && reason != CastEndReason.RELEASED
+        boolean releaseUse = (source.isItem() || source == CastSource.COMMITTED) && reason != CastEndReason.RELEASED
                 && player.isUsingItem() && isSpellItem(player.getUseItem().getItem());
         // Clear before hooks so a hook that starts a new cast isn't clobbered.
         data.clearCasting();
@@ -187,6 +197,11 @@ public final class SpellCasting {
      */
     public static void stopClientUsing(ServerPlayer player) {
         player.connection.send(new ClientboundEntityEventPacket(player, ENTITY_EVENT_FINISH_USING));
+    }
+
+    /** An uninterruptible cast in progress: player actions such as switching spells must not cancel it. */
+    public static boolean isCommitted(MagicData data) {
+        return data.isCasting() && data.getCastSource() == CastSource.COMMITTED;
     }
 
     private static boolean isSpellItem(Item item) {

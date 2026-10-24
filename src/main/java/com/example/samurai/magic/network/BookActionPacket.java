@@ -24,7 +24,7 @@ public record BookActionPacket(Action action) {
             }
             if (!p.isAlive() || p.isSpectator()) return;
             if (action == Action.OPEN) {
-                if (p.containerMenu != p.inventoryMenu) return;
+                if (p.containerMenu != p.inventoryMenu || SpellCasting.isCommitted(d)) return;
                 SpellCasting.endCast(p, CastEndReason.CANCELLED);
                 p.openMenu(new SimpleMenuProvider((id, inventory, player) -> new BookEquipmentMenu(id, inventory),
                         Component.translatable("screen.samuraiboss.equipment")));
