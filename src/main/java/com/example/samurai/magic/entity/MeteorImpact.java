@@ -52,9 +52,9 @@ public final class MeteorImpact {
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    private static final double DAMAGE_RADIUS = 12.0;
-    private static final float DAMAGE_CENTER = 40f;
-    private static final float DAMAGE_EDGE = 10f;
+    private static final double DAMAGE_RADIUS = 14.0;
+    private static final float DAMAGE_CENTER = 60f;
+    private static final float DAMAGE_EDGE = 20f;
 
     /** Blocks at or above this blast resistance survive (obsidian, ancient debris, anvils...). */
     private static final float RESISTANCE_LIMIT = 600f;
@@ -100,7 +100,7 @@ public final class MeteorImpact {
         JOBS.add(new CraterJob(level, center, radius, keepClear));
     }
 
-    /** Linear falloff from 40 at the centre to 10 at 12 blocks. Spares the caster and everything they own. */
+    /** Linear falloff from 60 at the centre to 20 at 14 blocks. Spares the caster and everything they own. */
     private static void damage(ServerLevel level, MeteorEntity meteor, Vec3 center) {
         UUID owner = meteor.getOwnerId();
         Entity caster = owner == null ? null : level.getPlayerByUUID(owner);

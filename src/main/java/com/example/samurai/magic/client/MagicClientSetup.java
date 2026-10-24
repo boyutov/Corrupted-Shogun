@@ -2,11 +2,14 @@ package com.example.samurai.magic.client;
 
 import com.example.samurai.SamuraiMod;
 import com.example.samurai.magic.registry.MagicEntities;
+import com.example.samurai.magic.item.SpellScrollItem;
+import com.example.samurai.magic.item.SpellSlot;
 import com.example.samurai.magic.registry.MagicItems;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.client.event.EntityRenderersEvent;
+import net.minecraftforge.client.event.RegisterColorHandlersEvent;
 import net.minecraftforge.client.event.RegisterGuiOverlaysEvent;
 import net.minecraftforge.client.event.RegisterItemDecorationsEvent;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
@@ -30,6 +33,15 @@ public final class MagicClientSetup {
         @SubscribeEvent
         public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
             event.registerEntityRenderer(MagicEntities.METEOR.get(), MeteorRenderer::new);
+        }
+
+        /** Tints the scroll's wax seal (model layer 1) with the spell's school colour. */
+        @SubscribeEvent
+        public static void registerItemColors(RegisterColorHandlersEvent.Item event) {
+            event.register((stack, tintIndex) -> {
+                SpellSlot slot = tintIndex == 1 ? SpellScrollItem.getSpell(stack) : null;
+                return slot == null ? -1 : slot.spell().getSchool().getColor();
+            }, MagicItems.SPELL_SCROLL.get());
         }
 
         @SubscribeEvent

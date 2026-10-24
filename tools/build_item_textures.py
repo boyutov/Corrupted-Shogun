@@ -4,7 +4,7 @@ Generates 16x16 item textures for the magic items, in the samurai's palette
 (build_model.py): a red leather grimoire with gold fittings and a purple gem.
 
 Usage:  python3 tools/build_item_textures.py
-Writes: src/main/resources/assets/samuraiboss/textures/item/spell_book.png
+Writes: src/main/resources/assets/samuraiboss/textures/item/spell_{book,scroll,scroll_seal}.png
 """
 
 import os
@@ -30,26 +30,73 @@ C = {
     "L": (206, 156, 255),   # purple_hi
     "w": (206, 188, 150),   # lace: pages
     "W": (232, 220, 190),   # page highlight
-    "k": (142, 124, 94),    # lace_lo: page shadow
+    "k": (142, 124, 94),    # lace_lo: page shadow / ink
+    "B": (122, 78, 44),     # scroll-only: roller wood
+    "b": (84, 50, 28),      # roller wood, shadow
+    # Seal greys; multiplied by the school colour in game.
+    "1": (150, 150, 150),
+    "2": (110, 110, 110),
+    "3": (215, 215, 215),
+    "4": (255, 255, 255),
 }
 
-# Front cover facing the viewer, spine on the left, page edges on the right.
+# Portrait grimoire: spine on the left, page edges on the right, gold-framed cover with a gem.
 SPELL_BOOK = [
+    "...OOOOOOOOOO...",
+    "...OsYGGGGGYWO..",
+    "...OgGhhrrdGwO..",
+    "...OsGhrrrdGWO..",
+    "...OsGrrrrdGwO..",
+    "...OsGrgYgdGWO..",
+    "...OsGgYPYgGwO..",
+    "...OgGYPLPYGWO..",
+    "...OsGgYPpgGwO..",
+    "...OsGrgYgdGWO..",
+    "...OsGrrrrdGwO..",
+    "...OsGrrrddGWO..",
+    "...OgGrrdddGkO..",
+    "...OsYGGGGGYkO..",
+    "...OOsssssssOO..",
+    "....OOOOOOOOO...",
+]
+
+# Parchment on two wooden rollers with gold knobs. The wax seal is a separate layer
+# (SPELL_SCROLL_SEAL), painted in greys and tinted at runtime with the spell's school colour.
+SPELL_SCROLL = [
     "................",
-    ".OOOOOOOOOOOOO..",
-    ".OsYGGGGGGGGYOO.",
-    ".OsGhhrrrrrrdGWO",
-    ".OgGhgggGgggdGwO",
-    ".OsGrgdrYrdgdGWO",
-    ".OsGrgrYPYrgdGwO",
-    ".OgGgYPLPPYGdGWO",
-    ".OsGrgrYPpYgdGwO",
-    ".OsGrgdrYrdgdGWO",
-    ".OsGrgggGgggdGwO",
-    ".OgGrrrrrrdddGkO",
-    ".OsYGGGGGGGGGYkO",
-    ".OOsssssssssssOO",
-    "..OOOOOOOOOOOOO.",
+    "..OOOOOOOOOOOO..",
+    ".OGbBBBBBBBBbGO.",
+    "..OObbbbbbbbOO..",
+    "...OWwwwwwwkO...",
+    "...OWwkkkkwkO...",
+    "...OWwwwwwwkO...",
+    "...OWwkkkwwkO...",
+    "...OWwwwwwwkO...",
+    "...OWwwwwwwkO...",
+    "...OWwwwwwwkO...",
+    "...OWwwwwwwkO...",
+    "..OObbbbbbbbOO..",
+    ".OGbBBBBBBBBbGO.",
+    "..OOOOOOOOOOOO..",
+    "................",
+]
+
+SPELL_SCROLL_SEAL = [
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    ".......12.......",
+    "......1331......",
+    "......3443......",
+    ".......22.......",
+    "................",
+    "................",
+    "................",
     "................",
 ]
 
@@ -67,4 +114,6 @@ def paint(rows):
 
 os.makedirs(OUT_DIR, exist_ok=True)
 paint(SPELL_BOOK).save(os.path.join(OUT_DIR, "spell_book.png"))
-print("wrote spell_book.png")
+paint(SPELL_SCROLL).save(os.path.join(OUT_DIR, "spell_scroll.png"))
+paint(SPELL_SCROLL_SEAL).save(os.path.join(OUT_DIR, "spell_scroll_seal.png"))
+print("wrote spell_book.png, spell_scroll.png, spell_scroll_seal.png")

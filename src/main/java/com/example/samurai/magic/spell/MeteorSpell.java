@@ -21,18 +21,23 @@ import net.minecraft.world.phys.Vec3;
 import javax.annotation.Nullable;
 
 /**
- * LONG, 2 s. While charging, the caster is carried up and back along an arc (32 up,
- * 18 sideways) to a safe vantage point; on completion a meteor comes in from the
- * opposite side onto the ground where the cast began. The caster then falls and lands
- * well outside the crater, with fall damage cancelled for that landing.
+ * LONG, 2 s. The target is fixed when the cast starts: the ground where the caster is
+ * looking, up to 100 blocks away. While charging, the caster is carried up and back
+ * along an arc (32 up, 18 away from the target) to a safe vantage point; on completion
+ * a meteor comes in over the target from beyond it. The caster then falls, with fall
+ * damage cancelled for that landing.
  * Level scales the crater only (radius 5 + level).
  */
 public class MeteorSpell extends Spell {
 
     public static final int CAST_TIME = 40;
     private static final double RISE_HEIGHT = 32.0;
-    /** Sideways travel, away from the meteor. Lands the caster beyond the largest crater (r 10) and blast (12). */
+    /** Travel away from the target. Even aiming at their own feet, the caster lands beyond the crater (r 10) and blast (14). */
     private static final double DRIFT = 18.0;
+    /** How far the caster can aim the meteor. */
+    private static final double AIM_RANGE = 100.0;
+    /** Closer than this the target gives no useful direction; the look direction is used instead. */
+    private static final double MIN_AIM_DISTANCE = 4.0;
     /** Clear headroom straight above the caster required before anything else is considered. */
     private static final double CEILING_CHECK = 30.0;
     private static final double SPAWN_HEIGHT = 40.0;
@@ -43,7 +48,7 @@ public class MeteorSpell extends Spell {
     /** How far below the arc's end to look for ground to land on. */
     private static final int LANDING_SCAN_DEPTH = 64;
 
-    /** How far below the caster to look for ground to strike. */
+    /** How far below the aimed block to look for ground to strike. */
     private static final int GROUND_SCAN_DEPTH = 32;
     /** "Ground" = a solid block with at least GROUND_MIN_SOLID solid blocks among the GROUND_PROBE from it downwards. */
     private static final int GROUND_PROBE = 5;
@@ -77,7 +82,11 @@ public class MeteorSpell extends Spell {
         if (!level.noCollision(caster, caster.getBoundingBox().expandTowards(0, CEILING_CHECK, 0))) {
             return noRoom();
         }
-        if (findGround(level, caster.blockPosition()) == null) {
+        BlockPos aim = aimedBlock(level, caster);
+        if (aim == null) {
+            return CastResult.fail(Component.translatable("message." + SamuraiMod.MOD_ID + ".meteor.no_target"));
+        }
+        if (findGround(level, aim) == null) {
             return CastResult.fail(Component.translatable("message." + SamuraiMod.MOD_ID + ".meteor.no_ground"));
         }
         if (plan(level, caster) == null) {
@@ -134,23 +143,35 @@ public class MeteorSpell extends Spell {
 
     // ---- planning ----
 
+    /** The block the caster's crosshair is on, within AIM_RANGE, or null if they are looking at nothing. */
+    @Nullable
+    private static BlockPos aimedBlock(ServerLevel level, ServerPlayer caster) {
+        Vec3 eye = caster.getEyePosition();
+        Vec3 end = eye.add(caster.getLookAngle().scale(AIM_RANGE));
+        BlockHitResult hit = level.clip(new ClipContext(eye, end, ClipContext.Block.COLLIDER,
+                ClipContext.Fluid.NONE, caster));
+        return hit.getType() == HitResult.Type.MISS ? null : hit.getBlockPos();
+    }
+
     /**
-     * Picks the meteor's heading: the caster's look direction first (so they watch it
-     * come in), then the others around it, 45 degrees apart. A heading is usable when
-     * the caster's backward arc is clear, there is ground under its end, and the meteor's
-     * line to the target is clear.
+     * Picks the meteor's heading: from the caster towards the target first, so the meteor
+     * comes in from beyond it and the caster drifts back, watching; then the others
+     * around it, 45 degrees apart. A heading is usable when the caster's arc is clear,
+     * there is ground under its end, and the meteor's line to the target is clear.
      */
     @Nullable
     private static Plan plan(ServerLevel level, ServerPlayer caster) {
-        BlockPos target = findGround(level, caster.blockPosition());
+        BlockPos aim = aimedBlock(level, caster);
+        BlockPos target = aim == null ? null : findGround(level, aim);
         if (target == null) {
             return null;
         }
         Vec3 impact = impactPoint(target);
+        Vec3 toTarget = new Vec3(impact.x - caster.getX(), 0, impact.z - caster.getZ());
         Vec3 look = caster.getLookAngle();
-        Vec3 forward = new Vec3(look.x, 0, look.z);
+        Vec3 forward = toTarget.length() >= MIN_AIM_DISTANCE ? toTarget : new Vec3(look.x, 0, look.z);
         forward = forward.lengthSqr() < 1.0E-4 ? new Vec3(0, 0, 1) : forward.normalize();
-        // 0, +45, -45, +90, -90, ... degrees around the look direction.
+        // 0, +45, -45, +90, -90, ... degrees around that direction.
         for (int i = 0; i < 8; i++) {
             int step = (i + 1) / 2 * (i % 2 == 1 ? 1 : -1);
             Vec3 heading = forward.yRot((float) Math.toRadians(45 * step));

@@ -1,6 +1,7 @@
 {
   "parent": "minecraft:item/generated",
   "textures": {
-    "layer0": "minecraft:item/paper"
+    "layer0": "samuraiboss:item/spell_scroll",
+    "layer1": "samuraiboss:item/spell_scroll_seal"
   }
 }

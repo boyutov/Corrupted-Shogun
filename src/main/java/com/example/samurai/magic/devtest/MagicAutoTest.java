@@ -187,11 +187,11 @@ public final class MagicAutoTest {
             record("   caster damage events: " + casterDamage);
             return casterDamage.isEmpty();
         });
-        check("M golem (≈10.5 blocks) damaged ~14", () -> onServer(() -> {
+        check("M golem (10 blocks) damaged ~31", () -> onServer(() -> {
             List<IronGolem> golems = serverPlayer().serverLevel().getEntitiesOfClass(IronGolem.class,
                     new AABB(BlockPos.ZERO.above(ARENA_TOP)).inflate(30));
             golems.forEach(g -> record("   golem health " + g.getHealth()));
-            return !golems.isEmpty() && golems.get(0).getHealth() < 90 && golems.get(0).getHealth() > 80;
+            return !golems.isEmpty() && golems.get(0).getHealth() < 75 && golems.get(0).getHealth() > 60;
         }));
         check("M tamed wolf untouched", () -> onServer(() -> {
             List<Wolf> wolves = serverPlayer().serverLevel().getEntitiesOfClass(Wolf.class,
@@ -581,7 +581,8 @@ public final class MagicAutoTest {
             return null;
         });
         mc.player.setYRot(0);
-        mc.player.setXRot(-30);
+        // Straight down: the meteor is aimed at the arena centre under the caster.
+        mc.player.setXRot(90);
     }
 
     private com.example.samurai.magic.spell.CastResult tryCastFromScroll() {

@@ -71,5 +71,6 @@
   "message.samuraiboss.inscribe.added": "%s written into the book",
   "message.samuraiboss.inscribe.upgraded": "%s upgraded in the book",
   "message.samuraiboss.inscribe.already_known": "The book already holds %s at this level or higher",
-  "message.samuraiboss.inscribe.full": "The book is full, no room for %s"
+  "message.samuraiboss.inscribe.full": "The book is full, no room for %s",
+  "message.samuraiboss.meteor.no_target": "No target within 100 blocks"
 }
