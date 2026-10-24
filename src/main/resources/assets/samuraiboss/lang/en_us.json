@@ -58,5 +58,7 @@
   "commands.samuraiboss.spellbook.full": "The spell book is full",
   "commands.samuraiboss.spellbook.added": "Added %s to slot %s",
   "commands.samuraiboss.spellbook.removed": "Cleared slot %s",
-  "commands.samuraiboss.spellbook.cleared": "Spell book cleared"
+  "commands.samuraiboss.spellbook.cleared": "Spell book cleared",
+  "key.samuraiboss.previous_spell": "Previous spell",
+  "key.samuraiboss.next_spell": "Next spell"
 }

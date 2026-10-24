@@ -1,15 +1,17 @@
 package com.example.samurai.magic.client;
 
+import com.example.samurai.magic.item.SpellSlot;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraftforge.client.gui.overlay.ForgeGui;
 import net.minecraftforge.client.gui.overlay.IGuiOverlay;
 
 /**
- * Mana bar to the right of the hotbar. Drawn with plain fills — no textures,
- * so there is nothing to ship or license.
+ * Mana bar to the right of the hotbar, with the held spell's name and cooldown
+ * above it. Drawn with plain fills — no textures, so there is nothing to ship or license.
  */
 public final class ManaHudOverlay implements IGuiOverlay {
 
@@ -49,7 +51,14 @@ public final class ManaHudOverlay implements IGuiOverlay {
 
         Font font = mc.font;
         String text = (int) mana + " / " + (int) max;
-        graphics.drawString(font, text, x + (BAR_WIDTH - font.width(text)) / 2, y - font.lineHeight, COLOR_TEXT, true);
+        int textY = y - font.lineHeight;
+        graphics.drawString(font, text, x + (BAR_WIDTH - font.width(text)) / 2, textY, COLOR_TEXT, true);
+
+        SpellSlot held = ClientSpellInfo.heldSpell(mc.player);
+        if (held != null) {
+            Component label = ClientSpellInfo.labelWithCooldown(held);
+            graphics.drawString(font, label, x, textY - font.lineHeight - 1, 0xFFFFFF, true);
+        }
     }
 
     private ManaHudOverlay() {

@@ -1,10 +1,12 @@
 package com.example.samurai.magic.client;
 
 import com.example.samurai.SamuraiMod;
+import com.example.samurai.magic.registry.MagicItems;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.client.event.RegisterGuiOverlaysEvent;
+import net.minecraftforge.client.event.RegisterItemDecorationsEvent;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
 import net.minecraftforge.client.gui.overlay.VanillaGuiOverlay;
 import net.minecraftforge.event.TickEvent;
@@ -19,11 +21,20 @@ public final class MagicClientSetup {
         @SubscribeEvent
         public static void registerOverlays(RegisterGuiOverlaysEvent event) {
             event.registerAbove(VanillaGuiOverlay.HOTBAR.id(), "mana_bar", ManaHudOverlay.INSTANCE);
+            // After the item name so leftHeight/rightHeight are final and the bar can sit above it.
+            event.registerAbove(VanillaGuiOverlay.ITEM_NAME.id(), "cast_bar", CastBarOverlay.INSTANCE);
+        }
+
+        @SubscribeEvent
+        public static void registerItemDecorations(RegisterItemDecorationsEvent event) {
+            event.register(MagicItems.SPELL_SCROLL.get(), ScrollCooldownDecorator.INSTANCE);
         }
 
         @SubscribeEvent
         public static void registerKeys(RegisterKeyMappingsEvent event) {
             event.register(MagicKeys.OPEN_SPELL_MENU);
+            event.register(MagicKeys.PREVIOUS_SPELL);
+            event.register(MagicKeys.NEXT_SPELL);
         }
 
         private ModBus() {

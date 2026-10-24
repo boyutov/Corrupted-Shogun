@@ -13,9 +13,13 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 
+import java.util.ArrayList;
 import java.util.List;
 
-/** Lists the slots of the held book; clicking a filled slot makes it active. */
+/**
+ * Lists the slots of the held book with each spell's cooldown; clicking a
+ * filled slot makes it active.
+ */
 public class SpellBookScreen extends Screen {
 
     private static final int BUTTON_WIDTH = 200;
@@ -23,6 +27,7 @@ public class SpellBookScreen extends Screen {
     private static final int SPACING = 4;
 
     private final InteractionHand hand;
+    private final List<Button> slotButtons = new ArrayList<>();
 
     public SpellBookScreen(InteractionHand hand) {
         super(Component.translatable("screen." + SamuraiMod.MOD_ID + ".spell_book"));
@@ -35,44 +40,55 @@ public class SpellBookScreen extends Screen {
 
     @Override
     protected void init() {
+        slotButtons.clear();
+        int count = SpellBookItem.getSlotCount(book());
+        int x = (width - BUTTON_WIDTH) / 2;
+        int top = (height - count * (BUTTON_HEIGHT + SPACING)) / 2;
+        for (int i = 0; i < count; i++) {
+            int index = i;
+            Button button = Button.builder(Component.empty(), b -> select(index))
+                    .bounds(x, top + i * (BUTTON_HEIGHT + SPACING), BUTTON_WIDTH, BUTTON_HEIGHT)
+                    .build();
+            slotButtons.add(addRenderableWidget(button));
+        }
+        refreshLabels();
+    }
+
+    /** Called every tick so cooldown counters run down while the screen is open. */
+    private void refreshLabels() {
         ItemStack stack = book();
         List<SpellSlot> slots = SpellBookItem.getSlots(stack);
         int active = SpellBookItem.getEffectiveActiveIndex(stack);
-
-        int x = (width - BUTTON_WIDTH) / 2;
-        int top = (height - slots.size() * (BUTTON_HEIGHT + SPACING)) / 2;
-        for (int i = 0; i < slots.size(); i++) {
+        for (int i = 0; i < slotButtons.size() && i < slots.size(); i++) {
             SpellSlot slot = slots.get(i);
-            int index = i;
-            Component label;
+            Button button = slotButtons.get(i);
             if (slot == null) {
-                label = Component.translatable("screen." + SamuraiMod.MOD_ID + ".spell_book.empty")
-                        .withStyle(ChatFormatting.DARK_GRAY);
+                button.setMessage(Component.translatable("screen." + SamuraiMod.MOD_ID + ".spell_book.empty")
+                        .withStyle(ChatFormatting.DARK_GRAY));
+                button.active = false;
             } else {
-                label = Component.literal(i == active ? "▶ " : "").append(slot.getDisplayName());
+                button.setMessage(Component.literal(i == active ? "▶ " : "")
+                        .append(ClientSpellInfo.labelWithCooldown(slot)));
+                button.active = true;
             }
-            Button button = Button.builder(label, b -> select(index))
-                    .bounds(x, top + i * (BUTTON_HEIGHT + SPACING), BUTTON_WIDTH, BUTTON_HEIGHT)
-                    .build();
-            button.active = slot != null;
-            addRenderableWidget(button);
         }
     }
 
     private void select(int index) {
-        ItemStack stack = book();
         // Apply locally for instant feedback; the server's copy syncs back anyway.
-        if (SpellBookItem.setActiveIndex(stack, index)) {
+        if (SpellBookItem.setActiveIndex(book(), index)) {
             MagicNetwork.CHANNEL.sendToServer(new SelectSpellPacket(hand, index));
         }
-        rebuildWidgets();
+        refreshLabels();
     }
 
     @Override
     public void tick() {
         if (!(book().getItem() instanceof SpellBookItem)) {
             onClose();
+            return;
         }
+        refreshLabels();
     }
 
     @Override
@@ -87,7 +103,7 @@ public class SpellBookScreen extends Screen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         renderBackground(graphics);
-        int top = (height - SpellBookItem.getSlotCount(book()) * (BUTTON_HEIGHT + SPACING)) / 2;
+        int top = (height - slotButtons.size() * (BUTTON_HEIGHT + SPACING)) / 2;
         graphics.drawCenteredString(font, title, width / 2, top - 16, 0xFFFFFF);
         super.render(graphics, mouseX, mouseY, partialTick);
     }

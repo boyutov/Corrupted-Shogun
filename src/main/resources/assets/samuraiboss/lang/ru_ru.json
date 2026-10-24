@@ -58,5 +58,7 @@
   "commands.samuraiboss.spellbook.full": "В книге нет свободных слотов",
   "commands.samuraiboss.spellbook.added": "%s записано в слот %s",
   "commands.samuraiboss.spellbook.removed": "Слот %s очищен",
-  "commands.samuraiboss.spellbook.cleared": "Книга очищена"
+  "commands.samuraiboss.spellbook.cleared": "Книга очищена",
+  "key.samuraiboss.previous_spell": "Предыдущее заклинание",
+  "key.samuraiboss.next_spell": "Следующее заклинание"
 }
