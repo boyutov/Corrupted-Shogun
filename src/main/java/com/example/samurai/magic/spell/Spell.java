@@ -21,7 +21,9 @@ import javax.annotation.Nullable;
  *   <li>LONG: {@code onCastStart} → {@code onCastTick}×N → {@code onCast} when the cast time runs out;
  *       ending early (release, damage, death) calls {@code onCastInterrupted} instead and costs nothing</li>
  *   <li>CONTINUOUS: {@code onCastStart} → {@code onCastTick}×N → {@code onCast} when released,
- *       out of time or out of mana; damage/death calls {@code onCastInterrupted} instead</li>
+ *       out of time or out of mana; damage/death calls {@code onCastInterrupted} instead.
+ *       Mana is paid at the end of each full {@link #getManaInterval()}; a trailing partial
+ *       interval is free</li>
  * </ul>
  * Cooldown starts only after {@code onCast}.
  */
@@ -96,7 +98,7 @@ public abstract class Spell {
         return Mth.clamp(level, minLevel, maxLevel);
     }
 
-    /** INSTANT/LONG: paid once. CONTINUOUS: paid every {@link #getManaInterval()} ticks. */
+    /** INSTANT: paid on cast. LONG: paid when charging completes. CONTINUOUS: paid at the end of every interval. */
     public float getManaCost(int level) {
         return baseManaCost + manaCostPerLevel * (level - minLevel);
     }
@@ -111,7 +113,7 @@ public abstract class Spell {
         return castTime;
     }
 
-    /** CONTINUOUS only: ticks between mana payments. The first payment is made at start. */
+    /** CONTINUOUS only: ticks between mana payments. Nothing is paid at start. */
     public int getManaInterval() {
         return 20;
     }

@@ -1,6 +1,7 @@
 package com.example.samurai.magic.command;
 
 import com.example.samurai.SamuraiMod;
+import com.example.samurai.magic.casting.CastSource;
 import com.example.samurai.magic.casting.SpellCasting;
 import com.example.samurai.magic.data.MagicData;
 import com.example.samurai.magic.registry.MagicSpells;
@@ -76,7 +77,7 @@ public final class SpellCommand {
             throw UNKNOWN_SPELL.create(id);
         }
         int spellLevel = level < 0 ? spell.getMinLevel() : level;
-        CastResult result = SpellCasting.tryCast(player, spell, spellLevel);
+        CastResult result = SpellCasting.tryCast(player, spell, spellLevel, CastSource.COMMAND);
         if (result.isSuccess()) {
             ctx.getSource().sendSuccess(() -> Component.translatable(KEY + "cast", spell.getDisplayName(), spellLevel),
                     false);

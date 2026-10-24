@@ -31,5 +31,6 @@
   "commands.samuraiboss.spell.status.idle": "Not casting",
   "commands.samuraiboss.spell.status.casting": "Casting %s lvl %s: %s ticks elapsed, %s left",
   "commands.samuraiboss.spell.status.cooldown": "Cooldown %s: %s / %s ticks",
-  "commands.samuraiboss.spell.cooldowns_cleared": "Cooldowns cleared"
+  "commands.samuraiboss.spell.cooldowns_cleared": "Cooldowns cleared",
+  "spell.samuraiboss.test_stub_continuous": "Test Stub (Continuous)"
 }

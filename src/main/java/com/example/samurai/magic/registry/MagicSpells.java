@@ -45,6 +45,15 @@ public final class MagicSpells {
                     // non-zero only so the damage-interrupt path has something to exercise
                     .interruptDamageThreshold(5f)));
 
+    // 5 s channel, 4 mana per second, threshold left at 0 (never interrupted by damage).
+    public static final RegistryObject<Spell> TEST_STUB_CONTINUOUS = SPELLS.register("test_stub_continuous",
+            () -> new TestStubSpell(new Spell.Properties()
+                    .castType(CastType.CONTINUOUS)
+                    .levels(1, 3)
+                    .manaCost(4f, 2f)
+                    .castTime(100)
+                    .cooldown(80)));
+
     public static IForgeRegistry<Spell> registry() {
         return REGISTRY.get();
     }

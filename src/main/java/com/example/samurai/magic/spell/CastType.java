@@ -7,7 +7,7 @@ public enum CastType {
     INSTANT,
     /** Charges for the cast time, fires once at the end. Ending early cancels it. */
     LONG,
-    /** Channels: ticks every tick and drains mana at intervals until released or out of time. */
+    /** Channels: ticks every tick and pays mana at the end of each interval until released or out of time. */
     CONTINUOUS;
 
     public boolean hasDuration() {

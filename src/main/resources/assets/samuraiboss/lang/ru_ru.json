@@ -31,5 +31,6 @@
   "commands.samuraiboss.spell.status.idle": "Каста нет",
   "commands.samuraiboss.spell.status.casting": "Каст %s ур. %s: прошло %s тиков, осталось %s",
   "commands.samuraiboss.spell.status.cooldown": "Кулдаун %s: %s / %s тиков",
-  "commands.samuraiboss.spell.cooldowns_cleared": "Кулдауны сброшены"
+  "commands.samuraiboss.spell.cooldowns_cleared": "Кулдауны сброшены",
+  "spell.samuraiboss.test_stub_continuous": "Тестовая заглушка (длительная)"
 }

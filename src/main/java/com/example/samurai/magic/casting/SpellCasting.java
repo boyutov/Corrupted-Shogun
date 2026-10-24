@@ -14,7 +14,7 @@ import net.minecraft.server.level.ServerPlayer;
  */
 public final class SpellCasting {
 
-    public static CastResult tryCast(ServerPlayer player, Spell spell, int spellLevel) {
+    public static CastResult tryCast(ServerPlayer player, Spell spell, int spellLevel, CastSource source) {
         MagicData data = MagicData.get(player).orElse(null);
         if (data == null || spell.getCastType() == CastType.NONE) {
             return CastResult.INVALID_SPELL;
@@ -28,7 +28,8 @@ public final class SpellCasting {
         if (data.getCooldowns().isOnCooldown(spell)) {
             return CastResult.ON_COOLDOWN;
         }
-        // LONG is only checked here and charged at the end; the others pay now.
+        // Only INSTANT pays now. LONG pays at the end, CONTINUOUS at the end of each
+        // interval — this check just makes sure the first payment is affordable.
         float cost = spell.getManaCost(spellLevel);
         if (!data.hasMana(cost)) {
             return CastResult.NOT_ENOUGH_MANA;
@@ -43,15 +44,10 @@ public final class SpellCasting {
             case INSTANT -> {
                 data.consumeMana(cost);
                 spell.onCastStart(level, player, spellLevel, data);
-                finishSuccessfully(level, player, spell, spellLevel, data);
+                finishSuccessfully(level, player, spell, spellLevel, data, source);
             }
-            case LONG -> {
-                data.startCasting(spell, spellLevel, spell.getCastTime(spellLevel));
-                spell.onCastStart(level, player, spellLevel, data);
-            }
-            case CONTINUOUS -> {
-                data.consumeMana(cost);
-                data.startCasting(spell, spellLevel, spell.getCastTime(spellLevel));
+            case LONG, CONTINUOUS -> {
+                data.startCasting(spell, spellLevel, spell.getCastTime(spellLevel), source);
                 spell.onCastStart(level, player, spellLevel, data);
             }
             default -> {
@@ -106,6 +102,7 @@ public final class SpellCasting {
         }
         Spell spell = data.getCastingSpell();
         int spellLevel = data.getCastingLevel();
+        CastSource source = data.getCastSource();
         // Clear before hooks so a hook that starts a new cast isn't clobbered.
         data.clearCasting();
         if (spell == null) {
@@ -120,7 +117,7 @@ public final class SpellCasting {
             default -> false;
         };
         if (success) {
-            finishSuccessfully(level, player, spell, spellLevel, data);
+            finishSuccessfully(level, player, spell, spellLevel, data, source);
         } else {
             CastEndReason actual = reason;
             if (reason == CastEndReason.COMPLETED) {
@@ -134,9 +131,10 @@ public final class SpellCasting {
     }
 
     private static void finishSuccessfully(ServerLevel level, ServerPlayer player, Spell spell, int spellLevel,
-                                           MagicData data) {
+                                           MagicData data, CastSource source) {
         spell.onCast(level, player, spellLevel, data);
         data.getCooldowns().start(spell, spell.getCooldown(spellLevel));
+        source.onCastSucceeded(player, spell);
     }
 
     private SpellCasting() {

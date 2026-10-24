@@ -1,5 +1,6 @@
 package com.example.samurai.magic.data;
 
+import com.example.samurai.magic.casting.CastSource;
 import com.example.samurai.magic.network.MagicNetwork;
 import com.example.samurai.magic.network.SyncManaPacket;
 import com.example.samurai.magic.registry.MagicAttributes;
@@ -46,6 +47,7 @@ public class MagicData implements INBTSerializable<CompoundTag> {
     private int castingLevel;
     private int castTicksElapsed;
     private int castTicksRemaining;
+    private CastSource castSource = CastSource.NONE;
 
     private final CooldownTracker cooldowns = new CooldownTracker();
 
@@ -127,7 +129,12 @@ public class MagicData implements INBTSerializable<CompoundTag> {
         return castTicksRemaining;
     }
 
-    public void startCasting(Spell spell, int level, int duration) {
+    public CastSource getCastSource() {
+        return castSource;
+    }
+
+    public void startCasting(Spell spell, int level, int duration, CastSource source) {
+        castSource = source;
         castingSpell = spell.getId();
         castingLevel = level;
         castTicksElapsed = 0;
@@ -145,6 +152,7 @@ public class MagicData implements INBTSerializable<CompoundTag> {
         castingLevel = 0;
         castTicksElapsed = 0;
         castTicksRemaining = 0;
+        castSource = CastSource.NONE;
     }
 
     /** Server-side, once per player tick. Mana regen only; casting ticks in SpellCasting. */
@@ -180,6 +188,7 @@ public class MagicData implements INBTSerializable<CompoundTag> {
         this.castingLevel = other.castingLevel;
         this.castTicksElapsed = other.castTicksElapsed;
         this.castTicksRemaining = other.castTicksRemaining;
+        this.castSource = other.castSource;
         this.cooldowns.copyFrom(other.cooldowns);
         this.dirty = true;
     }
@@ -194,6 +203,7 @@ public class MagicData implements INBTSerializable<CompoundTag> {
             cast.putInt("Level", castingLevel);
             cast.putInt("Elapsed", castTicksElapsed);
             cast.putInt("Remaining", castTicksRemaining);
+            cast.putString("Source", castSource.name());
             tag.put("Cast", cast);
         }
         tag.put("Cooldowns", cooldowns.save());
@@ -211,6 +221,7 @@ public class MagicData implements INBTSerializable<CompoundTag> {
             castingLevel = cast.getInt("Level");
             castTicksElapsed = cast.getInt("Elapsed");
             castTicksRemaining = cast.getInt("Remaining");
+            castSource = CastSource.byName(cast.getString("Source"));
         }
         cooldowns.load(tag.getList("Cooldowns", Tag.TAG_COMPOUND));
         dirty = true;
