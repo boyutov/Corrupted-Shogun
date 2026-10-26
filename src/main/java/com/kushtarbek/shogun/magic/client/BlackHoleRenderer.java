@@ -58,7 +58,7 @@ public class BlackHoleRenderer extends EntityRenderer<BlackHoleEntity> {
     public void render(BlackHoleEntity hole, float yaw, float partialTick, PoseStack pose, MultiBufferSource buffers,
                        int packedLight) {
         float age = hole.tickCount + partialTick;
-        float size = scaleAt(age);
+        float size = scaleAt(age, hole.getDuration());
         if (size <= 0.01f) {
             return;
         }
@@ -97,10 +97,10 @@ public class BlackHoleRenderer extends EntityRenderer<BlackHoleEntity> {
     }
 
     /** Opens with an overshoot, holds, then collapses into a point. */
-    private static float scaleAt(float age) {
+    private static float scaleAt(float age, int duration) {
         float open = Mth.clamp(age / OPEN_TICKS, 0f, 1f);
         float grow = 1f + 2.4f * (open - 1f) * (open - 1f) * (open - 1f) + 1.4f * (open - 1f) * (open - 1f); // ease-out-back
-        float close = Mth.clamp((BlackHoleEntity.DURATION - age) / CLOSE_TICKS, 0f, 1f);
+        float close = Mth.clamp((duration - age) / CLOSE_TICKS, 0f, 1f);
         return grow * close * close;
     }
 

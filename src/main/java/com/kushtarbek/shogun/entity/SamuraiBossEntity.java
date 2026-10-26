@@ -121,9 +121,9 @@ public class SamuraiBossEntity extends Monster implements GeoEntity {
 
     /** Matches the 1.0 s phase_charge_windup clip. */
     private static final int WINDUP_TICKS = 20;
-    /** Blocks per tick; the 20-block dash normally takes about one second. */
+    /** Blocks per tick; the 24-block dash normally takes about 1.2 seconds. */
     private static final double DASH_SPEED = 1.0D;
-    private static final double DASH_DISTANCE = 20.0D;
+    private static final double DASH_DISTANCE = 24.0D;
     /** Safety net so a dash into geometry can never hang the fight. */
     private static final int DASH_MAX_TICKS = 36;
     private static final float DASH_DAMAGE_MULTIPLIER = 1.5F;

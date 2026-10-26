@@ -111,6 +111,7 @@ public final class SpellItemUse {
         }
         tooltip.add(Component.translatable(key + "cooldown", seconds(spell.getCooldown(slot.level())))
                 .withStyle(ChatFormatting.GRAY));
+        spell.appendLevelInfo(slot.level(), tooltip);
     }
 
     private static String seconds(int ticks) {

@@ -27,6 +27,9 @@ public final class MagicItems {
     public static final RegistryObject<Item> SPELL_BOOK = ITEMS.register("spell_book",
             () -> new SpellBookItem(5, new Item.Properties().rarity(Rarity.UNCOMMON)));
 
+    public static final RegistryObject<Item> SHOGUN_GUIDE = ITEMS.register("shogun_guide",
+            () -> new com.kushtarbek.shogun.magic.item.GuideItem(new Item.Properties().stacksTo(1)));
+
     public static final RegistryObject<Item> SPELL_SCROLL = ITEMS.register("spell_scroll",
             () -> new SpellScrollItem(new Item.Properties().stacksTo(16)));
 
@@ -35,11 +38,14 @@ public final class MagicItems {
                     .title(Component.translatable("itemGroup." + SamuraiMod.MOD_ID + ".magic"))
                     .icon(() -> new ItemStack(SPELL_BOOK.get()))
                     .displayItems((params, output) -> {
+                        output.accept(SHOGUN_GUIDE.get());
                         output.accept(SPELL_BOOK.get());
-                        // One scroll per real spell, at full power; other levels: /spell scroll <spell> <level>.
+                        // Every level of every real spell.
                         for (Spell spell : castableSpells()) {
                             if (!spell.isDevOnly()) {
-                                output.accept(SpellScrollItem.create(spell, spell.getMaxLevel()));
+                                for (int level = spell.getMinLevel(); level <= spell.getMaxLevel(); level++) {
+                                    output.accept(SpellScrollItem.create(spell, level));
+                                }
                             }
                         }
                     })

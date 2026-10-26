@@ -77,6 +77,12 @@ public class MeteorSpell extends Spell {
     }
 
     @Override
+    public void appendLevelInfo(int spellLevel, java.util.List<Component> tooltip) {
+        tooltip.add(Component.translatable("tooltip." + SamuraiMod.MOD_ID + ".meteor.crater", craterRadius(spellLevel))
+                .withStyle(net.minecraft.ChatFormatting.GOLD));
+    }
+
+    @Override
     public CastResult checkPreCast(ServerLevel level, ServerPlayer caster, int spellLevel, MagicData data) {
         // Sweep the caster's own hitbox upwards: catches thin ceilings a single ray would slip past.
         if (!level.noCollision(caster, caster.getBoundingBox().expandTowards(0, CEILING_CHECK, 0))) {
