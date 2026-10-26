@@ -1,0 +1,235 @@
+{
+  "type": "minecraft:chest",
+  "pools": [
+    {
+      "rolls": {
+        "type": "minecraft:uniform",
+        "min": 3,
+        "max": 6
+      },
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:arrow",
+          "weight": 15,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 2,
+                "max": 8
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:bread",
+          "weight": 12,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 1,
+                "max": 3
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:cooked_salmon",
+          "weight": 8,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 1,
+                "max": 3
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:paper",
+          "weight": 10,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 1,
+                "max": 4
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:bamboo",
+          "weight": 10,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 2,
+                "max": 6
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:string",
+          "weight": 8,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 1,
+                "max": 4
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:iron_ingot",
+          "weight": 8,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 1,
+                "max": 3
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:iron_sword",
+          "weight": 2,
+          "functions": [
+            {
+              "function": "minecraft:set_damage",
+              "damage": {
+                "type": "minecraft:uniform",
+                "min": 0.3,
+                "max": 0.9
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:book",
+          "weight": 4
+        }
+      ]
+    },
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:empty",
+          "weight": 980
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:gold_nugget",
+          "weight": 10,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 2,
+                "max": 5
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:gold_ingot",
+          "weight": 6,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 1,
+                "max": 2
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:emerald",
+          "weight": 4,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 1,
+                "max": 1
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:empty",
+          "weight": 980
+        },
+        {
+          "type": "minecraft:item",
+          "name": "samuraiboss:spell_scroll",
+          "weight": 12,
+          "functions": [
+            {
+              "function": "minecraft:set_nbt",
+              "tag": "{Scroll:{Spell:\"samuraiboss:meteor\",Level:1}}"
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "samuraiboss:spell_scroll",
+          "weight": 5,
+          "functions": [
+            {
+              "function": "minecraft:set_nbt",
+              "tag": "{Scroll:{Spell:\"samuraiboss:black_hole\",Level:1}}"
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "samuraiboss:spell_scroll",
+          "weight": 3,
+          "functions": [
+            {
+              "function": "minecraft:set_nbt",
+              "tag": "{Scroll:{Spell:\"samuraiboss:meteor\",Level:2}}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

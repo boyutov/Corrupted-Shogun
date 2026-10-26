@@ -8,6 +8,9 @@ import com.kushtarbek.shogun.magic.registry.MagicEntities;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -35,8 +38,9 @@ import javax.annotation.Nullable;
 import java.util.UUID;
 
 /**
- * Seven-second singularity. Pulls living things in sight within 30 blocks towards its
- * centre, holds the ones that reach it, and deals 2 magic damage to each once a second.
+ * Singularity. Pulls living things in sight within 30 blocks towards its centre, holds
+ * the ones that reach it, and deals magic damage to each once a second. Spell level sets
+ * how long it lasts (7 s at level 1, +1 s per level) and the damage (2, +0.5 per level).
  * Never touches its caster or what the caster owns, items, vehicles or blocks. Drawn by
  * BlackHoleRenderer (horizon, disk, lensing) with a particle inflow from BlackHoleVfx.
  *
@@ -48,10 +52,14 @@ public class BlackHoleEntity extends Entity {
     public static final double RADIUS = 30.0;
     /** Inside this, mobs are held still instead of pulled further (pulling here only makes them jitter). */
     private static final double HOLD_RADIUS = 2.0;
+    /** Lifetime at level 1; see {@link #duration(int)}. */
     public static final int DURATION = 140;
     /** Once a second, in one hit: damage split into smaller, faster hits is eaten by invulnerability frames. */
     private static final int DAMAGE_INTERVAL = 20;
     private static final float DAMAGE = 2f;
+    /** Synced: the client needs the lifetime to time the closing animation. */
+    private static final EntityDataAccessor<Integer> SPELL_LEVEL =
+            SynchedEntityData.defineId(BlackHoleEntity.class, EntityDataSerializers.INT);
     /** Pull acceleration per tick: a floor everywhere in range, plus more the closer the target. */
     private static final double PULL_BASE = 0.04;
     private static final double PULL_NEAR = 0.10;
@@ -73,8 +81,29 @@ public class BlackHoleEntity extends Entity {
     }
 
     public BlackHoleEntity(Level level, ServerPlayer owner) {
+        this(level, owner, 1);
+    }
+
+    public BlackHoleEntity(Level level, ServerPlayer owner, int spellLevel) {
         this(MagicEntities.BLACK_HOLE.get(), level);
         this.ownerId = owner.getUUID();
+        this.entityData.set(SPELL_LEVEL, Math.max(1, spellLevel));
+    }
+
+    public static int duration(int spellLevel) {
+        return DURATION + 20 * (spellLevel - 1);
+    }
+
+    public static float damage(int spellLevel) {
+        return DAMAGE + 0.5f * (spellLevel - 1);
+    }
+
+    public int getSpellLevel() {
+        return entityData.get(SPELL_LEVEL);
+    }
+
+    public int getDuration() {
+        return duration(getSpellLevel());
     }
 
     private static Vector3f rgb(int r, int g, int b) {
@@ -90,7 +119,7 @@ public class BlackHoleEntity extends Entity {
                 server.playSound(null, getX(), getY(), getZ(), SoundEvents.BEACON_AMBIENT, SoundSource.PLAYERS, 2f, 0.5f);
             }
             affectSurroundings(server);
-            if (tickCount >= DURATION) {
+            if (tickCount >= getDuration()) {
                 collapse(server);
                 discard();
             }
@@ -113,7 +142,7 @@ public class BlackHoleEntity extends Entity {
             }
             if (damageTick) {
                 // Magic bypasses armour; slowness and damage ignore knockback resistance.
-                target.hurt(damageSources().indirectMagic(this, owner), DAMAGE);
+                target.hurt(damageSources().indirectMagic(this, owner), damage(getSpellLevel()));
                 target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, DAMAGE_INTERVAL + 10, 1,
                         false, true));
             }
@@ -204,11 +233,13 @@ public class BlackHoleEntity extends Entity {
 
     @Override
     protected void defineSynchedData() {
+        entityData.define(SPELL_LEVEL, 1);
     }
 
     @Override
     protected void readAdditionalSaveData(CompoundTag tag) {
         ownerId = tag.hasUUID("Owner") ? tag.getUUID("Owner") : null;
+        entityData.set(SPELL_LEVEL, Math.max(1, tag.getInt("SpellLevel")));
     }
 
     @Override
@@ -216,5 +247,6 @@ public class BlackHoleEntity extends Entity {
         if (ownerId != null) {
             tag.putUUID("Owner", ownerId);
         }
+        tag.putInt("SpellLevel", getSpellLevel());
     }
 }

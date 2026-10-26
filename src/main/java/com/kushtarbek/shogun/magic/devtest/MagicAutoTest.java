@@ -84,11 +84,15 @@ import java.util.function.Supplier;
 public final class MagicAutoTest {
 
     private static final Logger LOGGER = LogUtils.getLogger();
-    /** "all" (default), or "meteor" / "blackhole" for just that spell's part. */
+    /** "all" (default), "meteor" / "blackhole" for just that spell's part, "boss", or "castle". */
     private static final String MODE = System.getProperty("samuraiboss.autotest", "");
     private static final boolean ENABLED = !MODE.isEmpty() && !MODE.equals("false");
-    private static final boolean FULL = !MODE.equals("meteor") && !MODE.equals("blackhole") && !MODE.equals("boss");
-    private static final boolean RUN_METEOR = FULL || MODE.equals("meteor");
+    private static final boolean FULL = !MODE.startsWith("meteor") && !MODE.equals("blackhole") && !MODE.equals("boss")
+            && !MODE.equals("castle") && !MODE.equals("scrolls") && !MODE.equals("guide");
+    private static final boolean CASTLE_MODE = MODE.equals("castle");
+    private static final boolean RUN_METEOR = FULL || MODE.startsWith("meteor");
+    /** "meteor1" .. "meteor5" picks the scroll level; the default run uses 4. */
+    private static final int METEOR_LEVEL = MODE.matches("meteor[1-5]") ? MODE.charAt(6) - '0' : 4;
     private static final boolean RUN_BLACK_HOLE = FULL || MODE.equals("blackhole");
     private static final String WORLD = "samuraiboss-autotest-" + System.currentTimeMillis();
 
@@ -130,6 +134,8 @@ public final class MagicAutoTest {
         act("create creative world", this::createWorld);
         until("world loaded", () -> mc.player != null && mc.level != null && server() != null
                 && serverPlayer() != null && mc.screen == null, 2400);
+        waitTicks(5);
+        if (MODE.equals("guide")) guideJoinSteps();
         act("setup", () -> {
             mc.options.pauseOnLostFocus = false;
             onServer(() -> {
@@ -138,8 +144,10 @@ public final class MagicAutoTest {
                 p.serverLevel().getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, server());
                 p.serverLevel().getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, server());
                 p.serverLevel().getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, server());
-                buildArena(p.serverLevel());
-                p.teleportTo(0.5, ARENA_TOP + 1, 0.5);
+                if (!CASTLE_MODE) {
+                    buildArena(p.serverLevel());
+                    p.teleportTo(0.5, ARENA_TOP + 1, 0.5);
+                }
                 p.getInventory().clearContent();
                 p.getInventory().setItem(0, MagicItems.createTestBook());
                 // Exact mana arithmetic below; regen is checked separately.
@@ -152,6 +160,9 @@ public final class MagicAutoTest {
         waitTicks(40);
 
         if (MODE.equals("boss")) bossSteps();
+        if (CASTLE_MODE) castleSteps();
+        if (FULL || MODE.equals("scrolls")) scrollSteps();
+        if (MODE.equals("guide")) guideSteps();
         if (FULL) {
             frameworkSteps();
         }
@@ -322,6 +333,497 @@ public final class MagicAutoTest {
         waitTicks(70);
         check("low ceiling cannot trap boss in skyfall", () -> onServer(() ->
                 combatBoss.getPhase() == SamuraiBossEntity.PHASE_NONE && combatBoss.onGround() && combatBoss.getWaveAge() < 0));
+    }
+
+    // Guide: handed out on first join, craftable again, and every page fits the book in both languages.
+    /** Before "setup", which empties the inventory. */
+    private void guideJoinSteps() {
+        check("G guide handed out once on first join", () -> onServer(() -> {
+            ServerPlayer p = serverPlayer();
+            int count = 0;
+            for (int i = 0; i < p.getInventory().getContainerSize(); i++) {
+                if (p.getInventory().getItem(i).is(MagicItems.SHOGUN_GUIDE.get())) count += p.getInventory().getItem(i).getCount();
+            }
+            boolean flag = p.getPersistentData().getCompound(net.minecraft.world.entity.player.Player.PERSISTED_NBT_TAG)
+                    .getBoolean(SamuraiMod.MOD_ID + ".guide_given");
+            record("   guides in inventory " + count + ", flag " + flag);
+            return count == 1 && flag;
+        }));
+    }
+
+    private void guideSteps() {
+        check("G recipes for the spell book and the guide", () -> onServer(() -> {
+            var recipes = server().getRecipeManager();
+            var book = recipes.byKey(new net.minecraft.resources.ResourceLocation(SamuraiMod.MOD_ID, "spell_book"));
+            var guide = recipes.byKey(new net.minecraft.resources.ResourceLocation(SamuraiMod.MOD_ID, "shogun_guide"));
+            var access = server().registryAccess();
+            return book.isPresent() && book.get().getResultItem(access).is(MagicItems.SPELL_BOOK.get())
+                    && guide.isPresent() && guide.get().getResultItem(access).is(MagicItems.SHOGUN_GUIDE.get());
+        }));
+        for (String lang : List.of("en_us", "ru_ru")) {
+            act("G language " + lang, () -> {
+                mc.getLanguageManager().setSelected(lang);
+                mc.options.languageCode = lang;
+                mc.reloadResourcePacks();
+            });
+            until("G resources reloaded (" + lang + ")", () -> mc.getOverlay() == null, 1200);
+            check("G every page translated and within 14 lines (" + lang + ")", () -> {
+                boolean ok = true;
+                for (int page = 1; page <= com.kushtarbek.shogun.magic.item.GuideItem.PAGES; page++) {
+                    String key = "guide." + SamuraiMod.MOD_ID + ".page." + page;
+                    int lines = mc.font.split(Component.translatable(key), 114).size();
+                    boolean translated = net.minecraft.client.resources.language.I18n.exists(key);
+                    if (lines > 14 || !translated) {
+                        record("   page " + page + ": " + lines + " lines, translated " + translated);
+                        ok = false;
+                    }
+                }
+                return ok;
+            });
+            act("G open the guide", com.kushtarbek.shogun.magic.client.GuideScreen::open);
+            for (int page = 0; page < com.kushtarbek.shogun.magic.item.GuideItem.PAGES; page++) {
+                int pg = page;
+                act("G page " + (pg + 1), () -> ((net.minecraft.client.gui.screens.inventory.BookViewScreen) mc.screen).setPage(pg));
+                waitTicks(2);
+                screenshot("guide_" + lang + "_" + (pg + 1 < 10 ? "0" : "") + (pg + 1));
+            }
+            act("G close the guide", () -> mc.setScreen(null));
+        }
+        act("G back to en_us", () -> {
+            mc.getLanguageManager().setSelected("en_us");
+            mc.options.languageCode = "en_us";
+            mc.reloadResourcePacks();
+        });
+        until("G resources reloaded (en_us)", () -> mc.getOverlay() == null, 1200);
+    }
+
+    // Scroll levels: anvil upgrades through the real AnvilMenu, black hole lifetime per level.
+    private BlackHoleEntity levelHole;
+
+    /** Puts two stacks in a fresh anvil; returns {result, cost} after the anvil (and our event) priced it. */
+    private Object[] anvil(ItemStack left, ItemStack right) {
+        var menu = new net.minecraft.world.inventory.AnvilMenu(0, serverPlayer().getInventory());
+        menu.getSlot(0).set(left);
+        menu.getSlot(1).set(right);
+        return new Object[]{menu.getSlot(2).getItem().copy(), menu.getCost(), menu};
+    }
+
+    private static String describe(ItemStack stack) {
+        SpellSlot slot = SpellScrollItem.getSpell(stack);
+        return stack.isEmpty() ? "nothing" : slot == null ? stack.toString() : slot.spell().getId().getPath() + " " + slot.level();
+    }
+
+    private void scrollSteps() {
+        Spell meteor = MagicSpells.METEOR.get(), hole = MagicSpells.BLACK_HOLE.get();
+        check("S both spells have levels 1-5", () -> meteor.getMinLevel() == 1 && meteor.getMaxLevel() == 5
+                && hole.getMinLevel() == 1 && hole.getMaxLevel() == 5);
+        for (Spell spell : List.of(meteor, hole)) {
+            for (int level = 1; level <= 4; level++) {
+                int from = level;
+                check("S anvil: " + spell.getId().getPath() + " " + from + " + " + from + " -> " + (from + 1), () -> onServer(() -> {
+                    Object[] r = anvil(SpellScrollItem.create(spell, from), SpellScrollItem.create(spell, from));
+                    SpellSlot out = SpellScrollItem.getSpell((ItemStack) r[0]);
+                    record("   result " + describe((ItemStack) r[0]) + ", cost " + r[1]);
+                    return out != null && out.spell() == spell && out.level() == from + 1 && (int) r[1] == 3 * from;
+                }));
+            }
+        }
+        check("S anvil refuses: level 5 + 5, mixed levels, mixed spells, a stack on the left", () -> onServer(() -> {
+            Object[][] cases = {
+                    anvil(SpellScrollItem.create(meteor, 5), SpellScrollItem.create(meteor, 5)),
+                    anvil(SpellScrollItem.create(meteor, 1), SpellScrollItem.create(meteor, 2)),
+                    anvil(SpellScrollItem.create(meteor, 2), SpellScrollItem.create(hole, 2)),
+                    anvil(SpellScrollItem.create(meteor, 1).copyWithCount(2), SpellScrollItem.create(meteor, 1)),
+                    anvil(SpellScrollItem.create(meteor, 1), new ItemStack(Items.PAPER))};
+            boolean ok = true;
+            for (Object[] r : cases) {
+                record("   -> " + describe((ItemStack) r[0]));
+                ok &= ((ItemStack) r[0]).isEmpty();
+            }
+            return ok;
+        }));
+        check("S taking the result uses one scroll from each side", () -> onServer(() -> {
+            ServerPlayer p = serverPlayer();
+            p.setGameMode(GameType.SURVIVAL);
+            p.setExperienceLevels(10);
+            Object[] r = anvil(SpellScrollItem.create(hole, 2), SpellScrollItem.create(hole, 2).copyWithCount(3));
+            var menu = (net.minecraft.world.inventory.AnvilMenu) r[2];
+            ItemStack taken = menu.getSlot(2).getItem();
+            boolean may = menu.getSlot(2).mayPickup(p);
+            menu.getSlot(2).onTake(p, taken);
+            record("   took " + describe(taken) + ", left now " + describe(menu.getSlot(0).getItem())
+                    + ", right now " + menu.getSlot(1).getItem().getCount() + ", xp levels " + p.experienceLevel);
+            boolean ok = may && menu.getSlot(0).getItem().isEmpty() && menu.getSlot(1).getItem().getCount() == 2
+                    && p.experienceLevel == 4;
+            p.setGameMode(GameType.CREATIVE);
+            return ok;
+        }));
+        for (int level = 1; level <= 5; level++) {
+            int lv = level;
+            act("S black hole level " + lv + ": open", () -> onServer(() -> {
+                levelHole = new BlackHoleEntity(serverPlayer().serverLevel(), serverPlayer(), lv);
+                levelHole.setPos(0.5, ARENA_TOP + 12, 0.5);
+                serverPlayer().serverLevel().addFreshEntity(levelHole);
+                return null;
+            }));
+            waitTicks(10);
+            check("S black hole level " + lv + ": the client renders it at level " + lv, () -> {
+                int clientLevel = mc.level.getEntity(levelHole.getId()) instanceof BlackHoleEntity c ? c.getSpellLevel() : -1;
+                record("   client level " + clientLevel);
+                return clientLevel == lv;
+            });
+            until("S black hole level " + lv + ": collapses", () -> onServer(() -> levelHole.isRemoved()), 400);
+            check("S black hole level " + lv + ": lasts " + BlackHoleEntity.duration(lv) / 20 + " s, deals "
+                    + BlackHoleEntity.damage(lv) + "/s", () -> {
+                record("   server ticks alive " + levelHole.tickCount);
+                return levelHole.tickCount == BlackHoleEntity.duration(lv);
+            });
+        }
+        check("S black hole level survives save/load", () -> onServer(() -> {
+            BlackHoleEntity a = new BlackHoleEntity(serverPlayer().serverLevel(), serverPlayer(), 4);
+            net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
+            a.saveWithoutId(tag);
+            BlackHoleEntity b = new BlackHoleEntity(serverPlayer().serverLevel(), serverPlayer());
+            b.load(tag);
+            return b.getSpellLevel() == 4 && b.getDuration() == 200;
+        }));
+    }
+
+    // Castle checks: the real /place command in a default superflat world, then the placed blocks,
+    // water, a walk from outside to the dais, the template's boss and dashes inside the courtyard.
+    private static final net.minecraft.resources.ResourceLocation CASTLE =
+            new net.minecraft.resources.ResourceLocation(SamuraiMod.MOD_ID, "shogun_castle");
+    private static final net.minecraft.resources.ResourceLocation CASTLE_LOOT =
+            new net.minecraft.resources.ResourceLocation(SamuraiMod.MOD_ID, "chests/shogun_castle_tower");
+    /** Courtyard interior in template coordinates (build_castle.py: CX0..CX1, CZ0..CZ1). */
+    private static final int YARD_X0 = 15, YARD_X1 = 80, YARD_Z0 = 15, YARD_Z1 = 78, YARD_FLOOR = 5;
+    private BlockPos castleOrigin;
+    private net.minecraft.world.level.block.Rotation castleRotation;
+    private net.minecraft.world.level.levelgen.structure.BoundingBox castleBox;
+    private int yardMinX, yardMaxX, yardMinZ, yardMaxZ;
+    private int templateWater;
+    private volatile boolean castleTiming;
+    private long serverTickStart, maxServerTick, lastClientTick, maxClientGap;
+    private int minFps = Integer.MAX_VALUE;
+    private SamuraiBossEntity castleBoss, dashBoss;
+    private IronGolem dashTarget;
+    private volatile Vec3 dashBossStart, dashBossEnd;
+
+    private BlockPos castle(int x, int y, int z) {
+        return castleOrigin.offset(net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate.transform(
+                new BlockPos(x, y, z), net.minecraft.world.level.block.Mirror.NONE, castleRotation, BlockPos.ZERO));
+    }
+
+    private Vec3 castle(double x, double y, double z) {
+        return Vec3.atLowerCornerOf(castleOrigin).add(net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate.transform(
+                new Vec3(x, y, z), net.minecraft.world.level.block.Mirror.NONE, castleRotation, BlockPos.ZERO));
+    }
+
+    private boolean inYard(Vec3 pos) {
+        BlockPos b = BlockPos.containing(pos);
+        return b.getX() >= yardMinX && b.getX() <= yardMaxX && b.getZ() >= yardMinZ && b.getZ() <= yardMaxZ;
+    }
+
+    /** Flies the player to template point {@code from}, looking at {@code to}. */
+    private void viewCastle(String shot, Vec3 from, Vec3 to, int settle) {
+        act("castle view " + shot, () -> onServer(() -> {
+            Vec3 a = castle(from.x, from.y, from.z), d = castle(to.x, to.y, to.z).subtract(a);
+            float yaw = (float) Math.toDegrees(Math.atan2(-d.x, d.z));
+            float pitch = (float) -Math.toDegrees(Math.atan2(d.y, Math.hypot(d.x, d.z)));
+            serverPlayer().teleportTo(serverPlayer().serverLevel(), a.x, a.y, a.z, yaw, pitch);
+            return null;
+        }));
+        waitTicks(settle);
+        screenshot(shot);
+    }
+
+    private void castleSteps() {
+        act("castle: fly, forceload the site", () -> onServer(() -> {
+            ServerPlayer p = serverPlayer();
+            p.getAbilities().flying = true;
+            p.onUpdateAbilities();
+            p.teleportTo(p.serverLevel(), 48, -40, 60, 0, 60);
+            // The piece starts at chunk 0,0 but may be rotated towards negative x/z.
+            for (int x = -9; x <= 9; x++) for (int z = -9; z <= 9; z++) p.serverLevel().setChunkForced(x, z, true);
+            return null;
+        }));
+        until("castle: site chunks loaded", () -> onServer(() -> {
+            for (int x = -9; x <= 9; x++) for (int z = -9; z <= 9; z++) {
+                if (!serverPlayer().serverLevel().hasChunk(x, z)) return false;
+            }
+            return true;
+        }), 2400);
+        waitTicks(100);
+        act("castle: /place structure samuraiboss:shogun_castle", () -> onServer(() -> {
+            ServerLevel level = serverPlayer().serverLevel();
+            long t0 = System.nanoTime();
+            int result = server().getCommands().performPrefixedCommand(
+                    server().createCommandSourceStack().withLevel(level), "place structure " + CASTLE + " 0 0 0");
+            long placeMs = (System.nanoTime() - t0) / 1_000_000;
+            record("   /place returned " + result + " in " + placeMs + " ms (server thread blocked for that long)");
+            if (result != 1) fail("castle: /place structure failed");
+
+            // Same seed and chunk: regenerating the start reproduces the command's piece and rotation.
+            net.minecraft.world.level.chunk.ChunkGenerator gen = level.getChunkSource().getGenerator();
+            var start = level.registryAccess().registryOrThrow(net.minecraft.core.registries.Registries.STRUCTURE).get(CASTLE)
+                    .generate(level.registryAccess(), gen, gen.getBiomeSource(), level.getChunkSource().randomState(),
+                            level.getStructureManager(), level.getSeed(), new net.minecraft.world.level.ChunkPos(0, 0), 0, level, b -> true);
+            var piece = (net.minecraft.world.level.levelgen.structure.PoolElementStructurePiece) start.getPieces().get(0);
+            castleOrigin = piece.getPosition();
+            castleRotation = piece.getRotation();
+            castleBox = start.getBoundingBox();
+            BlockPos ya = castle(YARD_X0, 0, YARD_Z0), yb = castle(YARD_X1, 0, YARD_Z1);
+            yardMinX = Math.min(ya.getX(), yb.getX());
+            yardMaxX = Math.max(ya.getX(), yb.getX());
+            yardMinZ = Math.min(ya.getZ(), yb.getZ());
+            yardMaxZ = Math.max(ya.getZ(), yb.getZ());
+            record("   origin " + castleOrigin.toShortString() + ", rotation " + castleRotation + ", box " + castleBox
+                    + ", world floor " + level.getMinBuildHeight());
+
+            // Every template block against the world, before any water gets a tick to flow.
+            net.minecraft.nbt.CompoundTag tpl = level.getStructureManager().getOrCreate(CASTLE).save(new net.minecraft.nbt.CompoundTag());
+            net.minecraft.nbt.ListTag palette = tpl.getList("palette", 10);
+            net.minecraft.world.level.block.state.BlockState[] states = new net.minecraft.world.level.block.state.BlockState[palette.size()];
+            for (int i = 0; i < states.length; i++) {
+                states[i] = net.minecraft.nbt.NbtUtils.readBlockState(level.holderLookup(net.minecraft.core.registries.Registries.BLOCK), palette.getCompound(i));
+            }
+            int total = 0, belowWorld = 0, wrong = 0;
+            java.util.Map<Integer, Integer> belowByY = new java.util.TreeMap<>();
+            java.util.Map<String, Integer> wrongByBlock = new java.util.TreeMap<>();
+            templateWater = 0;
+            for (net.minecraft.nbt.Tag t : tpl.getList("blocks", 10)) {
+                net.minecraft.nbt.CompoundTag b = (net.minecraft.nbt.CompoundTag) t;
+                net.minecraft.nbt.ListTag p = b.getList("pos", 3);
+                Block expected = states[b.getInt("state")].getBlock();
+                BlockPos w = castle(p.getInt(0), p.getInt(1), p.getInt(2));
+                total++;
+                if (expected == Blocks.WATER) templateWater++;
+                if (w.getY() < level.getMinBuildHeight()) {
+                    belowWorld++;
+                    belowByY.merge(p.getInt(1), 1, Integer::sum);
+                } else if (level.getBlockState(w).getBlock() != expected) {
+                    wrong++;
+                    wrongByBlock.merge(expected.builtInRegistryHolder().key().location().getPath()
+                            + "->" + level.getBlockState(w).getBlock().builtInRegistryHolder().key().location().getPath(), 1, Integer::sum);
+                }
+            }
+            record("   template blocks " + total + ", water " + templateWater + ", below world floor " + belowWorld
+                    + " (by template y " + belowByY + "), placed differently " + wrong + " " + wrongByBlock);
+            if (wrong > 0) fail("castle: every in-world template block placed");
+            else record("PASS castle: every in-world template block placed");
+
+            List<SamuraiBossEntity> bosses = level.getEntitiesOfClass(SamuraiBossEntity.class, AABB.of(castleBox).inflate(4));
+            Vec3 dais = castle(47.5, 9, 46.5);
+            record("   bosses in castle: " + bosses.size() + (bosses.isEmpty() ? "" : String.format(
+                    ", first at %.2f %.2f %.2f, expected %.2f %.2f %.2f", bosses.get(0).getX(), bosses.get(0).getY(),
+                    bosses.get(0).getZ(), dais.x, dais.y, dais.z)));
+            castleBoss = bosses.size() == 1 ? bosses.get(0) : null;
+            if (castleBoss != null && castleBoss.position().distanceTo(dais) < 0.6) record("PASS castle: one boss on the dais");
+            else fail("castle: one boss on the dais");
+
+            maxServerTick = maxClientGap = 0;
+            minFps = Integer.MAX_VALUE;
+            lastClientTick = 0;
+            castleTiming = true;
+            return null;
+        }));
+        waitTicks(40);
+        check("castle: boss still standing on the dais top", () -> onServer(() -> {
+            Vec3 dais = castle(47.5, 9, 46.5);
+            record(String.format("   boss alive %s, ground %s, offset from dais %.2f, y %.2f / %.2f",
+                    castleBoss != null && castleBoss.isAlive(), castleBoss != null && castleBoss.onGround(),
+                    castleBoss == null ? -1 : castleBoss.position().distanceTo(dais), castleBoss == null ? 0 : castleBoss.getY(), dais.y));
+            return castleBoss != null && castleBoss.isAlive() && castleBoss.onGround() && Math.abs(castleBoss.getY() - dais.y) < 0.1;
+        }));
+        viewCastle("castle_01_overview", new Vec3(-25, 60, -30), new Vec3(48, 8, 60), 100);
+        viewCastle("castle_02_bridge_gate", new Vec3(47.5, 7.6, -8), new Vec3(47.5, 9, 20), 60);
+        viewCastle("castle_03_yard_dais", new Vec3(47.5, 13, 20), new Vec3(47.5, 9, 46.5), 60);
+        viewCastle("castle_04_moat_corner", new Vec3(-6, 14, -6), new Vec3(10, 3, 10), 60);
+        act("castle: stop timing", () -> {
+            castleTiming = false;
+            record(String.format("   after placement (~10 s): longest server tick %d ms, longest client tick gap %d ms, lowest fps %d",
+                    maxServerTick / 1_000_000, maxClientGap / 1_000_000, minFps));
+        });
+
+        check("castle: moat water stays in the moat", () -> onServer(() -> {
+            ServerLevel level = serverPlayer().serverLevel();
+            int water = 0, flowing = 0, inYard = 0;
+            var area = castleBox.inflatedBy(3);
+            for (BlockPos pos : BlockPos.betweenClosed(area.minX(), Math.max(area.minY(), level.getMinBuildHeight()), area.minZ(),
+                    area.maxX(), area.maxY(), area.maxZ())) {
+                var fluid = level.getFluidState(pos);
+                if (!fluid.is(net.minecraft.tags.FluidTags.WATER)) continue;
+                water++;
+                if (!fluid.isSource()) flowing++;
+                if (inYard(Vec3.atCenterOf(pos)) && pos.getY() > castle(0, YARD_FLOOR, 0).getY()) inYard++;
+            }
+            record("   water blocks " + water + " (template " + templateWater + "), flowing " + flowing + ", above the yard floor " + inYard);
+            return flowing == 0 && inYard == 0 && water <= templateWater;
+        }));
+
+        check("castle: walkable from outside the moat to the dais top", () -> onServer(() -> {
+            ServerLevel level = serverPlayer().serverLevel();
+            BlockPos from = castle(47, 5, -4), to = castle(47, 9, 46);
+            java.util.Set<BlockPos> seen = new java.util.HashSet<>();
+            java.util.ArrayDeque<BlockPos> queue = new java.util.ArrayDeque<>();
+            seen.add(from);
+            queue.add(from);
+            boolean reached = false;
+            BlockPos yardProbe = castle(47, 6, 25);
+            boolean yard = false;
+            while (!queue.isEmpty() && seen.size() < 200_000) {
+                BlockPos at = queue.poll();
+                if (at.equals(to)) reached = true;
+                if (at.equals(yardProbe)) yard = true;
+                for (net.minecraft.core.Direction dir : net.minecraft.core.Direction.Plane.HORIZONTAL) {
+                    for (int dy : new int[]{0, 1, -1, -2, -3}) {
+                        BlockPos n = at.relative(dir).above(dy);
+                        if (dy == 1 && !level.getBlockState(at.above(2)).getCollisionShape(level, at.above(2)).isEmpty()) continue;
+                        if (!castleBox.inflatedBy(6).isInside(n) || seen.contains(n) || !standable(level, n)) continue;
+                        seen.add(n);
+                        queue.add(n);
+                        break;
+                    }
+                }
+            }
+            record("   explored " + seen.size() + " standing spots, yard reached " + yard + ", dais top reached " + reached);
+            return yard && reached;
+        }));
+
+        check("castle: six tower chests, each with the scroll loot table, and one opens with loot", () -> onServer(() -> {
+            ServerLevel level = serverPlayer().serverLevel();
+            List<ChestBlockEntity> chests = new ArrayList<>();
+            for (BlockPos pos : BlockPos.betweenClosed(castleBox.minX(), Math.max(castleBox.minY(), level.getMinBuildHeight()),
+                    castleBox.minZ(), castleBox.maxX(), castleBox.maxY(), castleBox.maxZ())) {
+                if (level.getBlockEntity(pos) instanceof ChestBlockEntity chest
+                        && CASTLE_LOOT.toString().equals(chest.saveWithoutMetadata().getString("LootTable"))) {
+                    chests.add(chest);
+                }
+            }
+            if (chests.isEmpty()) return false;
+            ChestBlockEntity first = chests.get(0);
+            first.unpackLootTable(serverPlayer());
+            int stacks = 0;
+            for (int i = 0; i < first.getContainerSize(); i++) if (!first.getItem(i).isEmpty()) stacks++;
+            record("   loot chests " + chests.size() + ", first at " + first.getBlockPos().toShortString() + " opened with " + stacks + " stacks");
+            return chests.size() == 6 && stacks > 0;
+        }));
+        check("castle: scrolls, gold and emeralds very rare (1-3% of chests), scrolls only level 1-2, a few books", () -> onServer(() -> {
+            ServerLevel level = serverPlayer().serverLevel();
+            var table = server().getLootData().getLootTable(CASTLE_LOOT);
+            java.util.Map<String, Integer> scrolls = new java.util.TreeMap<>();
+            int rolls = 20000, withScroll = 0, withValuable = 0, withBook = 0;
+            boolean onlyLowLevels = true;
+            for (int i = 0; i < rolls; i++) {
+                var params = new net.minecraft.world.level.storage.loot.LootParams.Builder(level)
+                        .withParameter(net.minecraft.world.level.storage.loot.parameters.LootContextParams.ORIGIN, Vec3.ZERO)
+                        .create(net.minecraft.world.level.storage.loot.parameters.LootContextParamSets.CHEST);
+                boolean found = false, valuable = false, book = false;
+                for (ItemStack stack : table.getRandomItems(params)) {
+                    valuable |= stack.is(Items.GOLD_NUGGET) || stack.is(Items.GOLD_INGOT) || stack.is(Items.EMERALD);
+                    book |= stack.is(Items.BOOK);
+                    SpellSlot slot = SpellScrollItem.getSpell(stack);
+                    if (stack.getItem() instanceof SpellScrollItem) {
+                        found = true;
+                        String key = slot == null ? "broken" : slot.spell().getId().getPath() + " " + slot.level();
+                        scrolls.merge(key, 1, Integer::sum);
+                        onlyLowLevels &= slot != null && slot.level() >= 1 && slot.level() <= 2;
+                    }
+                }
+                if (found) withScroll++;
+                if (valuable) withValuable++;
+                if (book) withBook++;
+            }
+            double rate = withScroll / (double) rolls, gold = withValuable / (double) rolls, books = withBook / (double) rolls;
+            record(String.format("   %d chest rolls: %.1f%% with a scroll %s (per castle of 6 chests: %.0f%%), "
+                            + "%.1f%% with gold or emeralds, %.1f%% with a book",
+                    rolls, rate * 100, scrolls, (1 - Math.pow(1 - rate, 6)) * 100, gold * 100, books * 100));
+            return onlyLowLevels && !scrolls.containsKey("broken") && rate > 0.01 && rate < 0.03
+                    && gold > 0.01 && gold < 0.03 && books > 0.05 && books < 0.35;
+        }));
+        viewCastle("castle_05_outer_wall", new Vec3(58, 12, -6), new Vec3(72, 16, 13), 60);
+        viewCastle("castle_06_turret_stairs", new Vec3(34, 8, 36), new Vec3(19, 13, 24), 40);
+        viewCastle("castle_07_turret_room", new Vec3(21.5, 13, 21.5), new Vec3(15, 13.5, 15), 40);
+        viewCastle("castle_08_keep_hall", new Vec3(47.5, 13, 81.5), new Vec3(47.5, 14, 100), 40);
+        viewCastle("castle_09_keep_library", new Vec3(55.5, 23, 85.5), new Vec3(39, 23.5, 97), 40);
+        viewCastle("castle_10_keep_treasury", new Vec3(50.5, 40, 89.5), new Vec3(44, 40, 94), 40);
+        act("castle: retire the castle's boss for the dash runs", () -> onServer(() -> {
+            if (castleBoss != null) castleBoss.discard();
+            return null;
+        }));
+        // From the dais: the four axes and the diagonals (which meet the dais pillars).
+        castleDash("dais to +x", 47.5, 9, 46.5, 75.5, 6, 46.5);
+        castleDash("dais to -x", 47.5, 9, 46.5, 19.5, 6, 46.5);
+        castleDash("dais to +z (keep)", 47.5, 9, 46.5, 47.5, 6, 74.5);
+        castleDash("dais to -z (gate)", 47.5, 9, 46.5, 47.5, 6, 18.5);
+        castleDash("dais diagonal", 47.5, 9, 46.5, 67.5, 6, 66.5);
+        // Across the yard, over the dais, at the walls and corners.
+        castleDash("east edge across the dais", 77.5, 6, 46.5, 17.5, 6, 46.5);
+        castleDash("corner to corner", 26.5, 6, 30.5, 77.5, 6, 75.5);
+        castleDash("yard into the north-west turret plinth", 40.5, 6, 30.5, 18.5, 6, 18.5);
+        // Worst case: lined up with the open gateway, target out past the moat.
+        castleDash("in line with the gate, target outside", 47.5, 6, 30.5, 47.5, 6, -6.5);
+        act("castle: clean up dash entities", () -> onServer(() -> {
+            if (dashBoss != null) dashBoss.discard();
+            if (dashTarget != null) dashTarget.discard();
+            dashBoss = null;
+            return null;
+        }));
+        act("castle: second /place over the first, template already cached", () -> onServer(() -> {
+            ServerLevel level = serverPlayer().serverLevel();
+            long t0 = System.nanoTime();
+            int result = server().getCommands().performPrefixedCommand(
+                    server().createCommandSourceStack().withLevel(level), "place structure " + CASTLE + " 0 0 0");
+            record("   second /place returned " + result + " in " + (System.nanoTime() - t0) / 1_000_000 + " ms");
+            level.getEntitiesOfClass(SamuraiBossEntity.class, AABB.of(castleBox).inflate(4)).forEach(Entity::discard);
+            return null;
+        }));
+    }
+
+    /** Feet at {@code pos}: two blocks of room and something no taller than a full block underfoot. */
+    private static boolean standable(ServerLevel level, BlockPos pos) {
+        var feet = level.getBlockState(pos);
+        var head = level.getBlockState(pos.above());
+        if (!feet.getFluidState().isEmpty() || !head.getCollisionShape(level, pos.above()).isEmpty()) return false;
+        var feetShape = feet.getCollisionShape(level, pos);
+        if (!feetShape.isEmpty()) return feetShape.max(net.minecraft.core.Direction.Axis.Y) <= 0.5;
+        var below = level.getBlockState(pos.below());
+        var belowShape = below.getCollisionShape(level, pos.below());
+        return !belowShape.isEmpty() && belowShape.max(net.minecraft.core.Direction.Axis.Y) <= 1.0 && below.getFluidState().isEmpty();
+    }
+
+    /** One dash from template point {@code from} towards a pinned target, ending inside the courtyard. */
+    private void castleDash(String name, double fx, double fy, double fz, double tx, double ty, double tz) {
+        act("castle dash " + name + ": set up", () -> onServer(() -> {
+            ServerLevel level = serverPlayer().serverLevel();
+            if (dashBoss != null) dashBoss.discard();
+            if (dashTarget != null) dashTarget.discard();
+            Vec3 f = castle(fx, fy, fz), t = castle(tx, ty, tz);
+            dashTarget = stationaryGolem(level, t.x, t.y, t.z);
+            dashTarget.setNoGravity(true);
+            dashTarget.setInvulnerable(true);
+            // Without NoAI: a NoAI mob is not "effective" and travel() ignores the dash velocity.
+            dashBoss = ModEntities.SAMURAI_SHOGUN.get().create(level);
+            dashBoss.moveTo(f.x, f.y, f.z, 0, 0);
+            net.minecraft.nbt.CompoundTag tag = new net.minecraft.nbt.CompoundTag();
+            dashBoss.addAdditionalSaveData(tag);
+            tag.putFloat("NextPhaseThreshold", 0.75F);
+            tag.putInt("SkyCooldown", 400);
+            dashBoss.readAdditionalSaveData(tag);
+            level.addFreshEntity(dashBoss);
+            dashBoss.setHealth(dashBoss.getMaxHealth() * 0.74F);
+            dashBoss.setTarget(dashTarget);
+            dashBossStart = null;
+            dashBossEnd = null;
+            return null;
+        }));
+        until("castle dash " + name + ": dash ran", () -> dashBossEnd != null, 200);
+        check("castle dash " + name + ": ends inside the courtyard", () -> {
+            if (dashBossEnd == null) return false;
+            double travelled = dashBossEnd.subtract(dashBossStart).horizontalDistance();
+            record(String.format("   travelled %.2f, end %.1f %.1f %.1f", travelled, dashBossEnd.x, dashBossEnd.y, dashBossEnd.z));
+            return travelled > 1.0 && inYard(dashBossEnd);
+        });
     }
 
     /** Book, keys, cast types, damage threshold, persistence. Skipped with -Psamuraiboss.autotest=meteor. */
@@ -585,7 +1087,7 @@ public final class MagicAutoTest {
     /** Meteor cast, landing, damage, crater, refusals, crater timing. */
     private void meteorSteps() {
         // Meteor
-        act("meteor setup: survival, scroll lvl 4, chest, golem, tamed wolf", this::setupMeteor);
+        act("meteor setup: survival, scroll lvl " + METEOR_LEVEL + ", chest, golem, tamed wolf", this::setupMeteor);
         waitTicks(10);
         act("hold RMB with meteor scroll", () -> {
             watchCasterDamage = true;
@@ -598,11 +1100,6 @@ public final class MagicAutoTest {
         untilTracking("M meteor cast completes", () -> !serverData(MagicData::isCasting), 80);
         screenshot("06_meteor_top");
         act("release RMB", () -> holdUse(false));
-        check("M arc: ≈32 up and ≈18 away from the impact", () -> {
-            apexDrift = onServer(() -> Math.hypot(serverPlayer().getX() - riseStartX, serverPlayer().getZ() - riseStartZ));
-            record("   rose " + String.format("%.2f", riseMaxY - riseStartY) + ", drifted " + String.format("%.2f", apexDrift));
-            return riseMaxY - riseStartY > 29 && riseMaxY - riseStartY < 34 && apexDrift > 15 && apexDrift < 20;
-        });
         check("M scroll consumed", () -> onServer(() -> SpellScrollItem.getSpell(serverPlayer().getMainHandItem()) == null));
         check("M meteor in flight, not straight down", () -> onServer(() -> {
             List<MeteorEntity> meteors = serverPlayer().serverLevel().getEntitiesOfClass(MeteorEntity.class,
@@ -613,6 +1110,13 @@ public final class MagicAutoTest {
         waitTicks(15);
         screenshot("07_meteor_flight");
         untilTracking("M caster landed", () -> serverPlayerBool(p -> p.onGround() && p.getY() < riseStartY + 2), 200);
+        // Judged after the landing: the client flies the arc on its own clock, so when it runs behind the
+        // server the cast ends (and used to end the measurement) before the caster reaches the top.
+        check("M arc: ≈32 up and ≈18 away from the impact", () -> {
+            apexDrift = onServer(() -> Math.hypot(serverPlayer().getX() - riseStartX, serverPlayer().getZ() - riseStartZ));
+            record("   rose " + String.format("%.2f", riseMaxY - riseStartY) + ", drifted " + String.format("%.2f", apexDrift));
+            return riseMaxY - riseStartY > 29 && riseMaxY - riseStartY < 34 && apexDrift > 15 && apexDrift < 20;
+        });
         check("M fall immunity used up by that landing", () -> !serverData(MagicData::isFallImmune));
         check("M landed beyond the crater edge (radius 9)", () -> {
             double d = onServer(() -> Math.hypot(serverPlayer().getX() - 0.5, serverPlayer().getZ() - 0.5));
@@ -644,8 +1148,9 @@ public final class MagicAutoTest {
             record("   netherite on ground " + count);
             return count == 5;
         }));
+        // Inside the smallest crater (level 1: radius 6, depth 4) as well as the largest.
         check("M crater dug", () -> onServer(() -> serverPlayer().serverLevel()
-                .getBlockState(new BlockPos(3, ARENA_TOP - 3, 3)).isAir()));
+                .getBlockState(new BlockPos(2, ARENA_TOP - 2, 0)).isAir()));
         act("stop watching damage", () -> watchCasterDamage = false);
 
         // Meteor refusals
@@ -810,9 +1315,9 @@ public final class MagicAutoTest {
             record(String.format("   centred max distance %.2f, max step %.3f", centredMaxDistance, centredMaxStep));
             return centredMaxDistance < 2.6 && centredMaxStep < 0.3;
         });
-        check("BH Shogun's dash still covers its 20 blocks (KB resistance 0.9)", () -> {
+        check("BH Shogun's dash still covers its 24 blocks (KB resistance 0.9)", () -> {
             record(String.format("   dash travelled %.2f in %d server ticks (limit %d)", dashTravelled, dashTicks, 36));
-            return dashTravelled >= 19.5 && dashTicks > 0 && dashTicks < 36;
+            return dashTravelled >= 23.5 && dashTicks > 0 && dashTicks < 36;
         });
         check("BH items and boats untouched", () -> {
             double lootMoved = onServer(() -> loot.position().distanceTo(lootStart));
@@ -868,6 +1373,18 @@ public final class MagicAutoTest {
 
     @SubscribeEvent
     public void serverTick(TickEvent.ServerTickEvent event) {
+        if (castleTiming) {
+            long now = System.nanoTime();
+            if (event.phase == TickEvent.Phase.START) serverTickStart = now;
+            else if (serverTickStart != 0) maxServerTick = Math.max(maxServerTick, now - serverTickStart);
+        }
+        if (event.phase == TickEvent.Phase.END && dashBoss != null) {
+            if (dashBossStart == null && dashBoss.getPhase() == SamuraiBossEntity.PHASE_DASH) {
+                dashBossStart = dashBoss.position();
+            } else if (dashBossStart != null && dashBossEnd == null && dashBoss.getPhase() != SamuraiBossEntity.PHASE_DASH) {
+                dashBossEnd = dashBoss.position();
+            }
+        }
         if (event.phase == TickEvent.Phase.END && combatBoss != null && countWaveHits) {
             bossMaxY = Math.max(bossMaxY, combatBoss.getY());
         }
@@ -929,7 +1446,7 @@ public final class MagicAutoTest {
             p.setHealth(20);
             p.teleportTo(0.5, ARENA_TOP + 1, 0.5);
             p.setYRot(0);
-            p.getInventory().setItem(p.getInventory().selected, SpellScrollItem.create(MagicSpells.METEOR.get(), 4));
+            p.getInventory().setItem(p.getInventory().selected, SpellScrollItem.create(MagicSpells.METEOR.get(), METEOR_LEVEL));
             serverData(d -> {
                 d.getCooldowns().clear();
                 return null;
@@ -970,8 +1487,11 @@ public final class MagicAutoTest {
     private void createWorld() {
         LevelSettings settings = new LevelSettings(WORLD, GameType.CREATIVE, false, Difficulty.NORMAL, true,
                 new GameRules(), WorldDataConfiguration.DEFAULT);
+        // The castle runs in a default superflat world, the way it gets tried with /place by hand.
         mc.createWorldOpenFlows().createFreshLevel(WORLD, settings, new WorldOptions(20261024L, false, false),
-                WorldPresets::createNormalWorldDimensions);
+                CASTLE_MODE ? registries -> registries.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
+                        .getHolderOrThrow(WorldPresets.FLAT).value().createWorldDimensions()
+                        : WorldPresets::createNormalWorldDimensions);
     }
 
     private void holdUse(boolean down) {
@@ -1229,6 +1749,12 @@ public final class MagicAutoTest {
     public void clientTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.END || index >= steps.size()) {
             return;
+        }
+        if (castleTiming) {
+            long now = System.nanoTime();
+            if (lastClientTick != 0) maxClientGap = Math.max(maxClientGap, now - lastClientTick);
+            lastClientTick = now;
+            minFps = Math.min(minFps, mc.getFps());
         }
         Step step = steps.get(index);
         boolean done;

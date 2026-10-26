@@ -101,7 +101,7 @@ These commands need operator rights (permission level 2).
 ## Installation
 
 1. Install Forge for Minecraft 1.20.1.
-2. Put `samuraiboss-1.20.1-1.0.0.jar` and the GeckoLib jar into your `mods`
+2. Put `samuraiboss-1.20.1-1.1.0.jar` and the GeckoLib jar into your `mods`
    folder.
 3. Start the game with the Forge profile.
 

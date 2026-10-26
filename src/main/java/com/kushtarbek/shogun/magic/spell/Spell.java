@@ -158,6 +158,10 @@ public abstract class Spell {
     public void onCastTick(ServerLevel level, ServerPlayer caster, int spellLevel, MagicData data, int ticksElapsed) {
     }
 
+    /** Tooltip lines for what this level does (crater size, duration...). Nothing by default. */
+    public void appendLevelInfo(int spellLevel, java.util.List<Component> tooltip) {
+    }
+
     /** The spell's actual effect. */
     public abstract void onCast(ServerLevel level, ServerPlayer caster, int spellLevel, MagicData data);
 

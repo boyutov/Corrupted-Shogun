@@ -4,6 +4,7 @@ import com.kushtarbek.shogun.SamuraiMod;
 import com.kushtarbek.shogun.magic.casting.CastSource;
 import com.kushtarbek.shogun.magic.registry.MagicItems;
 import com.kushtarbek.shogun.magic.spell.Spell;
+import net.minecraft.ChatFormatting;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
@@ -80,6 +81,10 @@ public class SpellScrollItem extends Item {
         SpellSlot slot = getSpell(stack);
         if (slot != null) {
             SpellItemUse.appendSpellInfo(tooltip, slot, false);
+            if (slot.level() < slot.spell().getMaxLevel()) {
+                tooltip.add(Component.translatable("tooltip." + SamuraiMod.MOD_ID + ".scroll_upgrade")
+                        .withStyle(ChatFormatting.DARK_GRAY));
+            }
         }
     }
 }

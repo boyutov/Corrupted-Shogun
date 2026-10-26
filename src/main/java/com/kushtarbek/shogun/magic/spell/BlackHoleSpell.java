@@ -1,7 +1,10 @@
 package com.kushtarbek.shogun.magic.spell;
 
+import com.kushtarbek.shogun.SamuraiMod;
 import com.kushtarbek.shogun.magic.data.MagicData;
 import com.kushtarbek.shogun.magic.entity.BlackHoleEntity;
+import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ClipContext;
@@ -12,7 +15,8 @@ import net.minecraft.world.phys.Vec3;
 /**
  * LONG, 1.5 s. Opens a {@link BlackHoleEntity} where the caster is looking (up to 30
  * blocks; 20 blocks ahead if the look ray hits nothing). The point is taken when the cast
- * completes, so the caster can keep aiming while charging.
+ * completes, so the caster can keep aiming while charging. Level 1-5 lengthens it and
+ * raises its damage; see {@link BlackHoleEntity#duration} and {@link BlackHoleEntity#damage}.
  */
 public class BlackHoleSpell extends Spell {
 
@@ -26,10 +30,18 @@ public class BlackHoleSpell extends Spell {
         super(new Properties()
                 .school(SpellSchool.VOID)
                 .castType(CastType.LONG)
-                .levels(1, 1)
+                .levels(1, 5)
                 .manaCost(60f, 0f)
                 .castTime(CAST_TIME)
                 .cooldown(600));
+    }
+
+    @Override
+    public void appendLevelInfo(int spellLevel, java.util.List<Component> tooltip) {
+        tooltip.add(Component.translatable("tooltip." + SamuraiMod.MOD_ID + ".black_hole.stats",
+                        String.format("%.0f", BlackHoleEntity.duration(spellLevel) / 20f),
+                        String.format("%.1f", BlackHoleEntity.damage(spellLevel)))
+                .withStyle(ChatFormatting.DARK_PURPLE));
     }
 
     /** Both arms rise over the charge, the same gesture the meteor uses, and drop when it opens. */
@@ -47,7 +59,7 @@ public class BlackHoleSpell extends Spell {
     @Override
     public void onCast(ServerLevel level, ServerPlayer caster, int spellLevel, MagicData data) {
         data.lowerMeteorArms();
-        BlackHoleEntity hole = new BlackHoleEntity(level, caster);
+        BlackHoleEntity hole = new BlackHoleEntity(level, caster, spellLevel);
         hole.setPos(aimPoint(level, caster));
         level.addFreshEntity(hole);
     }

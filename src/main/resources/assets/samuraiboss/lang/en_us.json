@@ -79,5 +79,22 @@
   "key.samuraiboss.cast_equipped_book": "Cast equipped book (hold)",
   "screen.samuraiboss.equipment": "Spellbook equipment",
   "screen.samuraiboss.equipment.hint": "Place your book in this slot",
-  "screen.samuraiboss.equipment.tab_hint": "Spellbook equipment slot"
+  "screen.samuraiboss.equipment.tab_hint": "Spellbook equipment slot",
+  "tooltip.samuraiboss.meteor.crater": "Crater radius: %s",
+  "tooltip.samuraiboss.black_hole.stats": "Lasts %s s, %s damage per second",
+  "tooltip.samuraiboss.scroll_upgrade": "Two of the same level on an anvil make the next level",
+  "item.samuraiboss.shogun_guide": "Notes on the Shogun's Magic",
+  "guide.samuraiboss.page.1": "§lNotes on the Shogun's Magic§r\n\nEverything about the magic of this world: the spell book, scrolls, mana, upgrades and the Fallen Shogun's castle.\n\nLost these notes? Craft a book with lapis lazuli.",
+  "guide.samuraiboss.page.2": "§lThe Spell Book§r\n\nCrafting table:\na book in the centre,\ngold ingots left and right,\nlapis lazuli above and below.\n\nThe book holds 5 spells.",
+  "guide.samuraiboss.page.3": "§lScrolls§r\n\nA scroll holds one spell. Right-click to cast it (hold for charged spells). No mana needed, but the scroll is used up.\n\nScrolls are found, very rarely, in the tower chests of the Shogun's castle.",
+  "guide.samuraiboss.page.4": "§lWriting a Spell Down§r\n\nIn your inventory, pick up a scroll and right-click it onto the spell book.\n\nThe spell fills a free slot and the scroll is used up. A higher level scroll upgrades a spell already in the book.",
+  "guide.samuraiboss.page.5": "§lCasting from the Book§r\n\nBook in hand: right-click casts the selected spell. It costs mana and then cools down.\n\nZ / X: previous and next spell.\nR (hold): the spell wheel.",
+  "guide.samuraiboss.page.6": "§lThe Book Slot§r\n\nYour inventory has a slot just for the spell book. Put it there to keep your hands free:\n\nV (hold): cast the selected spell from that slot.\n\nKeys can be changed in Controls.",
+  "guide.samuraiboss.page.7": "§lMana§r\n\nThe mana bar sits by the hotbar. You have 300 and it refills by itself.\n\nScrolls cost no mana. Every spell cools down after a cast; the ring on its icon shows how long.",
+  "guide.samuraiboss.page.8": "§lUpgrading Scrolls§r\n\nPut two scrolls of the same spell and level in an anvil to get one of the next level, up to V.\n\nCost: 3, 6, 9 and 12 levels. Keep exactly one scroll in the left slot.",
+  "guide.samuraiboss.page.9": "§lMeteor§r (fire)\n\n2 s charge: you rise and drift away while a meteor strikes where you looked, up to 100 blocks off. You land unharmed.\n\nLevel widens the crater: radius 6 at I, 10 at V.",
+  "guide.samuraiboss.page.10": "§lBlack Hole§r (void)\n\nOpens where you look. Pulls in living things within 30 blocks and hurts them every second.\n\nLevel makes it last longer (7-11 s) and hit harder (2-4 per second).",
+  "guide.samuraiboss.page.11": "§lThe Shogun's Castle§r\n\nA rare castle behind a water moat, found in plains, savanna, forest and taiga.\n\nThe Shogun waits on the dais in the courtyard. The towers hold chests.",
+  "guide.samuraiboss.page.12": "§lThe Fallen Shogun§r\n\nA boss. Watch for his dash across the courtyard and his leap with shockwaves: jump over the waves. At a third of his health he enrages.\n\nHe drops the Fallen Shogun's Blade.",
+  "guide.samuraiboss.page.13": "§lThe Shogun's Blade§r\n\nShift + right-click: a shadow dash of 10 blocks that hurts everything in the way, then Regeneration II.\n\nGood luck, samurai."
 }
